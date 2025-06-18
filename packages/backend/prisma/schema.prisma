@@ -1,0 +1,571 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Enums
+enum ContactStatus {
+  INTERESADO
+  PASAJERO
+  CLIENTE
+}
+
+enum BudgetRange {
+  LOW
+  MEDIUM
+  HIGH
+  LUXURY
+}
+
+enum TravelStyle {
+  ADVENTURE
+  RELAXATION
+  CULTURAL
+  BUSINESS
+  LUXURY
+  FAMILY
+  ROMANTIC
+}
+
+enum ContactSource {
+  WEBSITE
+  REFERRAL
+  SOCIAL_MEDIA
+  ADVERTISING
+  DIRECT
+  PARTNER
+  OTHER
+}
+
+enum TripStatus {
+  QUOTE
+  BOOKED
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+}
+
+enum CampaignType {
+  EMAIL
+  SMS
+  WHATSAPP
+}
+
+enum CampaignStatus {
+  DRAFT
+  SCHEDULED
+  SENDING
+  SENT
+  CANCELLED
+}
+
+enum EventType {
+  CLIENT_MEETING
+  TRIP_DEPARTURE
+  TRIP_RETURN
+  FOLLOW_UP_CALL
+  PAYMENT_DUE
+  SEASONAL_CAMPAIGN
+  TASK
+  OTHER
+}
+
+enum AutomationTriggerType {
+  CONTACT_CREATED
+  TRIP_QUOTE_REQUESTED
+  PAYMENT_OVERDUE
+  TRIP_COMPLETED
+  NO_ACTIVITY_30_DAYS
+  SEASONAL_OPPORTUNITY
+  BIRTHDAY
+  CUSTOM
+}
+
+enum AutomationActionType {
+  SEND_EMAIL
+  CREATE_TASK
+  SCHEDULE_CALL
+  ADD_TAG
+  UPDATE_STATUS
+  GENERATE_QUOTE
+  ASSIGN_AGENT
+  SEND_WHATSAPP
+}
+
+enum UserRole {
+  ADMIN
+  MANAGER
+  AGENT
+  VIEWER
+}
+
+enum TaskStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+// Models
+model User {
+  id          String    @id @default(cuid())
+  email       String    @unique
+  firebaseUid String    @unique
+  firstName   String
+  lastName    String
+  role        UserRole  @default(AGENT)
+  avatar      String?
+  phone       String?
+  isActive    Boolean   @default(true)
+  lastLogin   DateTime?
+
+  // Relations
+  assignedContacts Contact[]  @relation("AssignedAgent")
+  createdContacts  Contact[]  @relation("CreatedBy")
+  tasks            Task[]
+  activities       Activity[]
+
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  CalendarEvent CalendarEvent[]
+
+  @@index([email])
+  @@index([firebaseUid])
+}
+
+model Contact {
+  id String @id @default(cuid())
+
+  // Basic Information
+  firstName String
+  lastName  String
+  email     String    @unique
+  phone     String?
+  birthDate DateTime?
+
+  // Classification
+  status ContactStatus @default(INTERESADO)
+
+  // Travel Preferences
+  preferredDestinations String[]
+  budgetRange           BudgetRange?
+  travelStyle           TravelStyle[]
+  groupSize             Int?
+  preferredSeasons      String[]
+
+  // Commercial Tracking
+  lastContact     DateTime?
+  nextFollowUp    DateTime?
+  assignedAgentId String?
+  assignedAgent   User?     @relation("AssignedAgent", fields: [assignedAgentId], references: [id])
+  tags            String[]
+
+  // Metadata
+  source         ContactSource @default(WEBSITE)
+  referralSource String?
+
+  // Relations
+  notes              ContactNote[]
+  trips              Trip[]
+  tasks              Task[]
+  campaignRecipients CampaignRecipient[]
+  activities         Activity[]
+  documents          Document[]
+  customFields       ContactCustomField[]
+
+  // Created/Updated
+  createdById   String?
+  createdBy     User?           @relation("CreatedBy", fields: [createdById], references: [id])
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  CalendarEvent CalendarEvent[]
+
+  @@index([email])
+  @@index([status])
+  @@index([assignedAgentId])
+  @@index([nextFollowUp])
+}
+
+model ContactNote {
+  id          String   @id @default(cuid())
+  contactId   String
+  contact     Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  content     String   @db.Text
+  isImportant Boolean  @default(false)
+  createdById String
+  createdAt   DateTime @default(now())
+
+  @@index([contactId])
+}
+
+model Trip {
+  id        String  @id @default(cuid())
+  contactId String
+  contact   Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  // Trip Details
+  destination   String
+  departureDate DateTime
+  returnDate    DateTime
+  travelers     Int
+  status        TripStatus @default(QUOTE)
+
+  // Commercial Information
+  estimatedBudget Float
+  finalPrice      Float?
+  commission      Float?
+  commissionPaid  Boolean @default(false)
+
+  // Services
+  includesFlight    Boolean  @default(false)
+  includesHotel     Boolean  @default(false)
+  includesTransfer  Boolean  @default(false)
+  includesTours     Boolean  @default(false)
+  includesInsurance Boolean  @default(false)
+  customServices    String[]
+
+  // Important Dates
+  quoteDate      DateTime  @default(now())
+  bookingDate    DateTime?
+  paymentDueDate DateTime?
+
+  // Additional Info
+  notes         String? @db.Text
+  internalNotes String? @db.Text
+
+  // Relations
+  documents  Document[]
+  payments   Payment[]
+  activities Activity[]
+
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  CalendarEvent CalendarEvent[]
+
+  @@index([contactId])
+  @@index([status])
+  @@index([departureDate])
+}
+
+model Campaign {
+  id     String         @id @default(cuid())
+  name   String
+  type   CampaignType
+  status CampaignStatus @default(DRAFT)
+
+  // Targeting
+  targetCriteria Json // Stored as JSON for flexibility
+
+  // Content
+  subject              String?
+  content              String         @db.Text
+  templateId           String?
+  template             EmailTemplate? @relation(fields: [templateId], references: [id])
+  useAiPersonalization Boolean        @default(false)
+
+  // Scheduling
+  scheduledDate DateTime?
+  sentDate      DateTime?
+  timezone      String    @default("UTC")
+
+  // Stats
+  recipientCount  Int @default(0)
+  sentCount       Int @default(0)
+  openCount       Int @default(0)
+  clickCount      Int @default(0)
+  conversionCount Int @default(0)
+
+  // Relations
+  recipients CampaignRecipient[]
+
+  createdById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([status])
+  @@index([scheduledDate])
+}
+
+model CampaignRecipient {
+  id         String   @id @default(cuid())
+  campaignId String
+  campaign   Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  contactId  String
+  contact    Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  // Tracking
+  sent        Boolean   @default(false)
+  sentAt      DateTime?
+  opened      Boolean   @default(false)
+  openedAt    DateTime?
+  clicked     Boolean   @default(false)
+  clickedAt   DateTime?
+  converted   Boolean   @default(false)
+  convertedAt DateTime?
+
+  // Personalization
+  personalizedContent String? @db.Text
+
+  createdAt DateTime @default(now())
+
+  @@unique([campaignId, contactId])
+  @@index([contactId])
+}
+
+model EmailTemplate {
+  id          String  @id @default(cuid())
+  name        String
+  category    String
+  subject     String
+  htmlContent String  @db.Text
+  textContent String? @db.Text
+  variables   Json // Dynamic variables definition
+
+  // AI Settings
+  aiPersonalization Json? // AI personalization config
+
+  // Usage
+  isActive   Boolean @default(true)
+  usageCount Int     @default(0)
+
+  // Relations
+  campaigns Campaign[]
+
+  createdById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([category])
+}
+
+model Automation {
+  id          String  @id @default(cuid())
+  name        String
+  description String?
+  isActive    Boolean @default(true)
+
+  // Trigger
+  triggerType       AutomationTriggerType
+  triggerConditions Json // Flexible conditions
+
+  // Relations
+  actions    AutomationAction[]
+  executions AutomationExecution[]
+
+  createdById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([isActive])
+  @@index([triggerType])
+}
+
+model AutomationAction {
+  id           String     @id @default(cuid())
+  automationId String
+  automation   Automation @relation(fields: [automationId], references: [id], onDelete: Cascade)
+
+  actionType   AutomationActionType
+  parameters   Json // Action-specific parameters
+  delayMinutes Int                  @default(0)
+  order        Int
+
+  createdAt DateTime @default(now())
+
+  @@index([automationId])
+}
+
+model AutomationExecution {
+  id           String     @id @default(cuid())
+  automationId String
+  automation   Automation @relation(fields: [automationId], references: [id])
+
+  // Trigger Info
+  triggeredBy Json // What triggered this execution
+
+  // Execution Status
+  status String // 'pending', 'running', 'completed', 'failed'
+  error  String?
+
+  // Timing
+  startedAt   DateTime  @default(now())
+  completedAt DateTime?
+
+  // Results
+  actionsExecuted Json[] // Log of actions executed
+
+  @@index([automationId])
+  @@index([status])
+  @@index([startedAt])
+}
+
+model CalendarEvent {
+  id          String    @id @default(cuid())
+  title       String
+  description String?   @db.Text
+  type        EventType
+
+  // Timing
+  startDate DateTime
+  endDate   DateTime
+  allDay    Boolean  @default(false)
+  timezone  String   @default("UTC")
+
+  // Relations
+  contactId String?
+  contact   Contact? @relation(fields: [contactId], references: [id])
+  tripId    String?
+  trip      Trip?    @relation(fields: [tripId], references: [id])
+
+  // Participants
+  assignedToId String
+  assignedTo   User   @relation(fields: [assignedToId], references: [id])
+
+  // AI Generated
+  aiGenerated   Boolean  @default(false)
+  aiSuggestions String[]
+
+  // Reminders
+  reminderMinutes Int[] // Array of minutes before event to send reminders
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([assignedToId])
+  @@index([contactId])
+  @@index([startDate])
+  @@index([type])
+}
+
+model Task {
+  id          String       @id @default(cuid())
+  title       String
+  description String?      @db.Text
+  status      TaskStatus   @default(PENDING)
+  priority    TaskPriority @default(MEDIUM)
+
+  // Assignment
+  assignedToId String
+  assignedTo   User   @relation(fields: [assignedToId], references: [id])
+
+  // Relations
+  contactId String?
+  contact   Contact? @relation(fields: [contactId], references: [id])
+
+  // Dates
+  dueDate     DateTime?
+  completedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([assignedToId])
+  @@index([status])
+  @@index([dueDate])
+}
+
+model Activity {
+  id          String @id @default(cuid())
+  type        String // 'email_sent', 'call_made', 'meeting_held', etc.
+  description String
+  metadata    Json? // Additional activity-specific data
+
+  // Relations
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  contactId String?
+  contact   Contact? @relation(fields: [contactId], references: [id])
+  tripId    String?
+  trip      Trip?    @relation(fields: [tripId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([contactId])
+  @@index([type])
+  @@index([createdAt])
+}
+
+model Document {
+  id       String @id @default(cuid())
+  name     String
+  type     String // 'passport', 'visa', 'invoice', 'itinerary', etc.
+  url      String
+  size     Int
+  mimeType String
+
+  // Relations
+  contactId String?
+  contact   Contact? @relation(fields: [contactId], references: [id])
+  tripId    String?
+  trip      Trip?    @relation(fields: [tripId], references: [id])
+
+  uploadedById String
+  createdAt    DateTime @default(now())
+
+  @@index([contactId])
+  @@index([tripId])
+}
+
+model Payment {
+  id     String @id @default(cuid())
+  tripId String
+  trip   Trip   @relation(fields: [tripId], references: [id])
+
+  amount   Float
+  currency String @default("USD")
+  method   String // 'credit_card', 'bank_transfer', 'cash', etc.
+  status   String // 'pending', 'completed', 'failed', 'refunded'
+
+  // Transaction Details
+  transactionId String?
+  receipt       String?
+
+  paidAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([tripId])
+  @@index([status])
+}
+
+model ContactCustomField {
+  id        String  @id @default(cuid())
+  contactId String
+  contact   Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  fieldName  String
+  fieldValue String @db.Text
+  fieldType  String // 'text', 'number', 'date', 'boolean', 'select'
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([contactId, fieldName])
+  @@index([contactId])
+}
+
+model SystemSetting {
+  id          String  @id @default(cuid())
+  key         String  @unique
+  value       Json
+  description String?
+
+  updatedById String
+  updatedAt   DateTime @updatedAt
+
+  @@index([key])
+}

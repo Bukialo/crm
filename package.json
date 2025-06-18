@@ -1,0 +1,42 @@
+{
+  "name": "bukialo-crm",
+  "version": "1.0.0",
+  "description": "CRM especializado para agencias de viajes con IA integrada",
+  "private": true,
+  "workspaces": [
+    "file:packages/backend",
+    "file:packages/frontend"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:backend": "npm run dev --workspace=@bukialo/backend",
+    "dev:frontend": "npm run dev --workspace=@bukialo/frontend",
+    "build": "npm run build --workspaces",
+    "build:backend": "npm run build --workspace=@bukialo/backend",
+    "build:frontend": "npm run build --workspace=@bukialo/frontend",
+    "test": "npm run test --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "format": "prettier --write \"packages/**/*.{ts,tsx,js,jsx,json,css,md}\"",
+    "clean": "npm run clean --workspaces --if-present && rimraf node_modules",
+    "db:migrate": "npm run db:migrate --workspace=@bukialo/backend",
+    "db:seed": "npm run db:seed --workspace=@bukialo/backend",
+    "prepare": "husky install"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "concurrently": "^8.2.2",
+    "husky": "^8.0.3",
+    "prettier": "^3.2.4",
+    "rimraf": "^5.0.5",
+    "typescript": "^5.3.3"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  },
+  "author": "Bukialo CRM Team",
+  "license": "MIT",
+  "dependencies": {
+    "@prisma/client": "^6.10.0"
+  }
+}

@@ -1,0 +1,212 @@
+@import 'tailwindcss/base';
+@import 'tailwindcss/components';
+@import 'tailwindcss/utilities';
+
+/* Variables CSS personalizadas */
+@layer base {
+  :root {
+    --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    --secondary-gradient: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    --accent-color: #00d4ff;
+    --success-color: #00ff88;
+    --dark-bg: #1a1d2e;
+    --card-bg: rgba(255, 255, 255, 0.1);
+    --glass-effect: blur(20px);
+    
+    /* Colores de texto */
+    --text-primary: #ffffff;
+    --text-secondary: rgba(255, 255, 255, 0.8);
+    --text-muted: rgba(255, 255, 255, 0.6);
+  }
+
+  .dark {
+    --dark-bg: #0f1114;
+    --card-bg: rgba(255, 255, 255, 0.05);
+  }
+
+  .border-border {
+    border-color: #ccc;
+  }
+}
+
+/* Reset y estilos base */
+@layer base {
+  * {
+    @apply border-border;
+  }
+  
+  body {
+    @apply bg-gray-900 text-white antialiased;
+    background-image: 
+      radial-gradient(at 20% 80%, rgb(120, 119, 198) 0, transparent 50%),
+      radial-gradient(at 80% 20%, rgb(255, 119, 198) 0, transparent 50%),
+      radial-gradient(at 40% 40%, rgb(120, 119, 255) 0, transparent 50%);
+    background-attachment: fixed;
+    min-height: 100vh;
+  }
+
+  /* Scrollbar personalizada */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-primary-500/30 rounded-full;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-primary-500/50;
+  }
+}
+
+/* Componentes glassmorphism reutilizables */
+@layer components {
+  /* Tarjeta con efecto glass */
+  .card-glass {
+    @apply glass-morphism rounded-2xl p-6 transition-all duration-300 hover:shadow-glass-lg;
+  }
+
+  /* Botón primario con gradiente */
+  .btn-primary {
+    @apply px-6 py-3 rounded-lg font-medium text-white transition-all duration-300;
+    background: var(--primary-gradient);
+    box-shadow: 0 4px 15px 0 rgba(139, 92, 246, 0.3);
+  }
+
+  .btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px 0 rgba(139, 92, 246, 0.4);
+  }
+
+  /* Botón secundario glass */
+  .btn-glass {
+    @apply glass px-6 py-3 rounded-lg font-medium text-white transition-all duration-300 hover:bg-white/20;
+  }
+
+  /* Input con estilo glass */
+  .input-glass {
+    @apply glass px-4 py-3 rounded-lg text-white placeholder-white/50 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-primary-500/50 focus:bg-white/15;
+  }
+
+  /* Badge/Tag */
+  .badge {
+    @apply inline-flex items-center px-3 py-1 rounded-full text-xs font-medium glass;
+  }
+
+  .badge-interesado {
+    @apply bg-blue-500/20 text-blue-200 border-blue-500/30;
+  }
+
+  .badge-pasajero {
+    @apply bg-amber-500/20 text-amber-200 border-amber-500/30;
+  }
+
+  .badge-cliente {
+    @apply bg-green-500/20 text-green-200 border-green-500/30;
+  }
+
+  /* Efectos de hover para cards */
+  .hover-lift {
+    @apply transition-transform duration-300 hover:-translate-y-1;
+  }
+
+  /* Animación de entrada */
+  .fade-in {
+    animation: fadeIn 0.5s ease-in;
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  /* Efectos de neón */
+  .neon-text {
+    text-shadow: 
+      0 0 10px var(--accent-color),
+      0 0 20px var(--accent-color),
+      0 0 30px var(--accent-color);
+  }
+
+  /* Loader animado */
+  .loader {
+    @apply inline-block w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin;
+  }
+
+  /* Overlay para modales */
+  .modal-overlay {
+    @apply fixed inset-0 bg-black/50 backdrop-blur-sm z-40;
+  }
+
+  /* Contenedor modal */
+  .modal-content {
+    @apply fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-50 w-full max-w-lg;
+  }
+}
+
+/* Utilidades personalizadas */
+@layer utilities {
+  /* Texto con gradiente */
+  .text-gradient {
+    @apply bg-gradient-to-r from-primary-400 to-secondary-400 bg-clip-text text-transparent;
+  }
+
+  /* Animación de pulso suave */
+  .pulse-soft {
+    animation: pulse-soft 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+
+  @keyframes pulse-soft {
+    0%, 100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.8;
+    }
+  }
+
+  /* Bordes con gradiente */
+  .border-gradient {
+    position: relative;
+    background: linear-gradient(var(--dark-bg), var(--dark-bg)) padding-box,
+                var(--primary-gradient) border-box;
+    border: 2px solid transparent;
+  }
+
+  /* Sombra de neón personalizada */
+  .shadow-neon {
+    filter: drop-shadow(0 0 20px rgba(0, 212, 255, 0.5));
+  }
+}
+
+/* Animaciones para transiciones de página */
+.page-enter {
+  opacity: 0;
+  transform: translateX(20px);
+}
+
+.page-enter-active {
+  opacity: 1;
+  transform: translateX(0);
+  transition: opacity 300ms, transform 300ms;
+}
+
+.page-exit {
+  opacity: 1;
+}
+
+.page-exit-active {
+  opacity: 0;
+  transition: opacity 300ms;
+}

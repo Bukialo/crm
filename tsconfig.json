@@ -1,0 +1,31 @@
+{
+    "compilerOptions": {
+      "target": "ES2022",
+      "module": "commonjs",
+      "lib": ["ES2022"],
+      "allowJs": true,
+      "skipLibCheck": true,
+      "esModuleInterop": true,
+      "allowSyntheticDefaultImports": true,
+      "strict": true,
+      "forceConsistentCasingInFileNames": true,
+      "noFallthroughCasesInSwitch": true,
+      "moduleResolution": "node",
+      "resolveJsonModule": true,
+      "isolatedModules": true,
+      "noEmit": false,
+      "declaration": true,
+      "declarationMap": true,
+      "sourceMap": true,
+      "noUnusedLocals": true,
+      "noUnusedParameters": true,
+      "noImplicitReturns": true,
+      "noUncheckedIndexedAccess": true,
+      "baseUrl": ".",
+      "paths": {
+        "@bukialo/shared": ["packages/shared/src"],
+        "@bukialo/shared/*": ["packages/shared/src/*"]
+      }
+    },
+    "exclude": ["node_modules", "dist", "build"]
+}
