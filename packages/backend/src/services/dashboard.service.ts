@@ -1,0 +1,454 @@
+import { prisma } from "../lib/prisma";
+import { logger } from "../utils/logger";
+import { startOfMonth, endOfMonth, subMonths, format } from "date-fns";
+import { es } from "date-fns/locale";
+
+export interface DashboardStats {
+  totalContacts: number;
+  newContactsThisMonth: number;
+  activeTrips: number;
+  completedTrips: number;
+  revenue: {
+    thisMonth: number;
+    lastMonth: number;
+    growth: number;
+  };
+  conversionRate: number;
+  contactsByStatus: {
+    interesados: number;
+    pasajeros: number;
+    clientes: number;
+  };
+}
+
+export interface SalesData {
+  month: string;
+  sales: number;
+  trips: number;
+}
+
+export interface TopDestination {
+  destination: string;
+  trips: number;
+  revenue: number;
+}
+
+export interface AgentPerformance {
+  id: string;
+  name: string;
+  contactsManaged: number;
+  tripsBooked: number;
+  revenue: number;
+  conversionRate: number;
+}
+
+export interface RecentActivity {
+  id: string;
+  type:
+    | "contact_created"
+    | "trip_booked"
+    | "status_changed"
+    | "payment_received";
+  description: string;
+  timestamp: string;
+  user: {
+    name: string;
+    avatar?: string;
+  };
+  metadata?: Record<string, any>;
+}
+
+export class DashboardService {
+  async getDashboardData(userId: string) {
+    try {
+      const [
+        stats,
+        salesChart,
+        topDestinations,
+        agentPerformance,
+        recentActivity,
+      ] = await Promise.all([
+        this.getStats(userId),
+        this.getSalesChart("month", userId),
+        this.getTopDestinations(5, userId),
+        this.getAgentPerformance(userId),
+        this.getRecentActivity(10, userId),
+      ]);
+
+      return {
+        stats,
+        salesChart,
+        topDestinations,
+        agentPerformance,
+        recentActivity,
+      };
+    } catch (error) {
+      logger.error("Error getting dashboard data:", error);
+      throw error;
+    }
+  }
+
+  async getStats(userId: string): Promise<DashboardStats> {
+    try {
+      const now = new Date();
+      const startThisMonth = startOfMonth(now);
+      const endThisMonth = endOfMonth(now);
+      const startLastMonth = startOfMonth(subMonths(now, 1));
+      const endLastMonth = endOfMonth(subMonths(now, 1));
+
+      // Total contacts
+      const totalContacts = await prisma.contact.count();
+
+      // New contacts this month
+      const newContactsThisMonth = await prisma.contact.count({
+        where: {
+          createdAt: {
+            gte: startThisMonth,
+            lte: endThisMonth,
+          },
+        },
+      });
+
+      // Active trips
+      const activeTrips = await prisma.trip.count({
+        where: {
+          status: {
+            in: ["BOOKED", "CONFIRMED"],
+          },
+        },
+      });
+
+      // Completed trips
+      const completedTrips = await prisma.trip.count({
+        where: {
+          status: "COMPLETED",
+        },
+      });
+
+      // Revenue this month
+      const revenueThisMonth = await prisma.trip.aggregate({
+        _sum: {
+          finalPrice: true,
+        },
+        where: {
+          status: "COMPLETED",
+          updatedAt: {
+            gte: startThisMonth,
+            lte: endThisMonth,
+          },
+        },
+      });
+
+      // Revenue last month
+      const revenueLastMonth = await prisma.trip.aggregate({
+        _sum: {
+          finalPrice: true,
+        },
+        where: {
+          status: "COMPLETED",
+          updatedAt: {
+            gte: startLastMonth,
+            lte: endLastMonth,
+          },
+        },
+      });
+
+      const thisMonthRevenue = revenueThisMonth._sum.finalPrice || 0;
+      const lastMonthRevenue = revenueLastMonth._sum.finalPrice || 0;
+      const revenueGrowth =
+        lastMonthRevenue > 0
+          ? ((thisMonthRevenue - lastMonthRevenue) / lastMonthRevenue) * 100
+          : 0;
+
+      // Contacts by status
+      const contactsByStatus = await prisma.contact.groupBy({
+        by: ["status"],
+        _count: true,
+      });
+
+      const statusCounts = {
+        interesados: 0,
+        pasajeros: 0,
+        clientes: 0,
+      };
+
+      contactsByStatus.forEach((group) => {
+        switch (group.status) {
+          case "INTERESADO":
+            statusCounts.interesados = group._count;
+            break;
+          case "PASAJERO":
+            statusCounts.pasajeros = group._count;
+            break;
+          case "CLIENTE":
+            statusCounts.clientes = group._count;
+            break;
+        }
+      });
+
+      // Conversion rate (from INTERESADO to CLIENTE)
+      const conversionRate =
+        statusCounts.interesados > 0
+          ? (statusCounts.clientes /
+              (statusCounts.interesados + statusCounts.clientes)) *
+            100
+          : 0;
+
+      return {
+        totalContacts,
+        newContactsThisMonth,
+        activeTrips,
+        completedTrips,
+        revenue: {
+          thisMonth: thisMonthRevenue,
+          lastMonth: lastMonthRevenue,
+          growth: revenueGrowth,
+        },
+        conversionRate,
+        contactsByStatus: statusCounts,
+      };
+    } catch (error) {
+      logger.error("Error getting dashboard stats:", error);
+      throw error;
+    }
+  }
+
+  async getSalesChart(period: string, userId: string): Promise<SalesData[]> {
+    try {
+      const now = new Date();
+      let months: Date[] = [];
+
+      // Generate last 6 months
+      for (let i = 5; i >= 0; i--) {
+        months.push(subMonths(now, i));
+      }
+
+      const salesData: SalesData[] = [];
+
+      for (const month of months) {
+        const startDate = startOfMonth(month);
+        const endDate = endOfMonth(month);
+
+        const [trips, revenue] = await Promise.all([
+          prisma.trip.count({
+            where: {
+              status: "COMPLETED",
+              updatedAt: {
+                gte: startDate,
+                lte: endDate,
+              },
+            },
+          }),
+          prisma.trip.aggregate({
+            _sum: {
+              finalPrice: true,
+            },
+            where: {
+              status: "COMPLETED",
+              updatedAt: {
+                gte: startDate,
+                lte: endDate,
+              },
+            },
+          }),
+        ]);
+
+        salesData.push({
+          month: format(month, "MMM", { locale: es }),
+          sales: revenue._sum.finalPrice || 0,
+          trips,
+        });
+      }
+
+      return salesData;
+    } catch (error) {
+      logger.error("Error getting sales chart data:", error);
+      throw error;
+    }
+  }
+
+  async getTopDestinations(
+    limit: number,
+    userId: string
+  ): Promise<TopDestination[]> {
+    try {
+      const destinations = await prisma.trip.groupBy({
+        by: ["destination"],
+        _count: true,
+        _sum: {
+          finalPrice: true,
+        },
+        where: {
+          status: "COMPLETED",
+        },
+        orderBy: {
+          _sum: {
+            finalPrice: "desc",
+          },
+        },
+        take: limit,
+      });
+
+      return destinations.map((dest) => ({
+        destination: dest.destination,
+        trips: dest._count,
+        revenue: dest._sum.finalPrice || 0,
+      }));
+    } catch (error) {
+      logger.error("Error getting top destinations:", error);
+      throw error;
+    }
+  }
+
+  async getAgentPerformance(userId: string): Promise<AgentPerformance[]> {
+    try {
+      const agents = await prisma.user.findMany({
+        where: {
+          role: {
+            in: ["AGENT", "MANAGER"],
+          },
+          isActive: true,
+        },
+        include: {
+          assignedContacts: {
+            include: {
+              trips: {
+                where: {
+                  status: "COMPLETED",
+                },
+              },
+            },
+          },
+        },
+      });
+
+      const performance: AgentPerformance[] = agents.map((agent) => {
+        const contactsManaged = agent.assignedContacts.length;
+        const tripsBooked = agent.assignedContacts.reduce(
+          (total, contact) => total + contact.trips.length,
+          0
+        );
+        const revenue = agent.assignedContacts.reduce(
+          (total, contact) =>
+            total +
+            contact.trips.reduce(
+              (tripTotal, trip) => tripTotal + (trip.finalPrice || 0),
+              0
+            ),
+          0
+        );
+
+        const conversionRate =
+          contactsManaged > 0 ? (tripsBooked / contactsManaged) * 100 : 0;
+
+        return {
+          id: agent.id,
+          name: `${agent.firstName} ${agent.lastName}`,
+          contactsManaged,
+          tripsBooked,
+          revenue,
+          conversionRate,
+        };
+      });
+
+      return performance.sort((a, b) => b.revenue - a.revenue);
+    } catch (error) {
+      logger.error("Error getting agent performance:", error);
+      throw error;
+    }
+  }
+
+  async getRecentActivity(
+    limit: number,
+    userId: string
+  ): Promise<RecentActivity[]> {
+    try {
+      const activities = await prisma.activity.findMany({
+        take: limit,
+        orderBy: {
+          createdAt: "desc",
+        },
+        include: {
+          user: {
+            select: {
+              firstName: true,
+              lastName: true,
+            },
+          },
+          contact: {
+            select: {
+              firstName: true,
+              lastName: true,
+            },
+          },
+        },
+      });
+
+      return activities.map((activity) => ({
+        id: activity.id,
+        type: activity.type as any,
+        description: activity.description,
+        timestamp: activity.createdAt.toISOString(),
+        user: {
+          name: `${activity.user.firstName} ${activity.user.lastName}`,
+        },
+        metadata: activity.metadata,
+      }));
+    } catch (error) {
+      logger.error("Error getting recent activity:", error);
+      throw error;
+    }
+  }
+
+  async getMetricsByDateRange(
+    startDate: Date,
+    endDate: Date,
+    userId: string
+  ): Promise<any> {
+    try {
+      const [contacts, trips, revenue] = await Promise.all([
+        prisma.contact.count({
+          where: {
+            createdAt: {
+              gte: startDate,
+              lte: endDate,
+            },
+          },
+        }),
+        prisma.trip.count({
+          where: {
+            createdAt: {
+              gte: startDate,
+              lte: endDate,
+            },
+          },
+        }),
+        prisma.trip.aggregate({
+          _sum: {
+            finalPrice: true,
+          },
+          where: {
+            status: "COMPLETED",
+            updatedAt: {
+              gte: startDate,
+              lte: endDate,
+            },
+          },
+        }),
+      ]);
+
+      return {
+        period: {
+          start: startDate.toISOString(),
+          end: endDate.toISOString(),
+        },
+        contacts,
+        trips,
+        revenue: revenue._sum.finalPrice || 0,
+      };
+    } catch (error) {
+      logger.error("Error getting metrics by date range:", error);
+      throw error;
+    }
+  }
+}

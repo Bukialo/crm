@@ -5,11 +5,10 @@ import emailRoutes from "./email.routes";
 import calendarRoutes from "./calendar.routes";
 import automationRoutes from "./automation.routes";
 import dashboardRoutes from "./dashboard.routes";
-// Import other routes as they are created
-// import tripRoutes from './trip.routes'
-import campaignRoutes from './campaign.routes'
-// import userRoutes from './user.routes'
-// import authRoutes from './auth.routes'
+import campaignRoutes from "./campaign.routes";
+// import tripRoutes from './trip.routes' // Para futuro
+// import userRoutes from './user.routes' // Para futuro
+// import authRoutes from './auth.routes' // Para futuro
 
 const router = Router();
 
@@ -20,12 +19,12 @@ router.get("/", (req, res) => {
     version: "1.0.0",
     description: "API for travel agency CRM with AI integration",
     endpoints: {
+      dashboard: "/api/dashboard", // ✅ AGREGADO
       contacts: "/api/contacts",
       trips: "/api/trips",
       campaigns: "/api/campaigns",
       users: "/api/users",
       auth: "/api/auth",
-      dashboard: "/api/dashboard",
       ai: "/api/ai",
       emails: "/api/emails",
       calendar: "/api/calendar",
@@ -35,15 +34,15 @@ router.get("/", (req, res) => {
 });
 
 // Mount routes
+router.use("/dashboard", dashboardRoutes); // ✅ AGREGADO
 router.use("/contacts", contactRoutes);
 router.use("/ai", aiRoutes);
 router.use("/emails", emailRoutes);
 router.use("/calendar", calendarRoutes);
 router.use("/automations", automationRoutes);
+router.use("/campaigns", campaignRoutes);
 // router.use('/trips', tripRoutes)
-router.use('/campaigns', campaignRoutes)
 // router.use('/users', userRoutes)
 // router.use('/auth', authRoutes)
-router.use('/dashboard', dashboardRoutes)
 
 export default router;
