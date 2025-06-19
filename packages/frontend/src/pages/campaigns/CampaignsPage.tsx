@@ -91,14 +91,14 @@ const CampaignsPage = () => {
     setShowForm(true);
   };
 
-  const handleDelete = async (campaign: Campaign) => {
+  const handleDelete = async (campaignId: string) => {
     if (
       window.confirm(
-        `¿Estás seguro de que deseas eliminar la campaña "${campaign.name}"?`
+        `¿Estás seguro de que deseas eliminar esta campaña? Esta acción no se puede deshacer.`
       )
     ) {
       try {
-        await deleteCampaign(campaign.id);
+        await deleteCampaign(campaignId);
       } catch (error) {
         // Error handled by hook
       }
@@ -122,17 +122,6 @@ const CampaignsPage = () => {
   const handleDuplicate = async (campaign: Campaign) => {
     try {
       await duplicateCampaign(campaign.id);
-    } catch (error) {
-      // Error handled by hook
-    }
-  };
-
-  const handleStatusChange = async (
-    campaign: Campaign,
-    newStatus: Campaign["status"]
-  ) => {
-    try {
-      await updateCampaignStatus({ id: campaign.id, status: newStatus });
     } catch (error) {
       // Error handled by hook
     }
@@ -414,7 +403,6 @@ const CampaignsPage = () => {
               onDelete={handleDelete}
               onSend={handleSend}
               onDuplicate={handleDuplicate}
-              onStatusChange={handleStatusChange}
             />
           ))}
         </div>

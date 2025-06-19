@@ -18,7 +18,7 @@ import {
   ArrowRight,
   Filter,
 } from "lucide-react";
-import Card, { CardContent, CardHeader, CardTitle } from "../ui/Card";
+import Card, { CardContent, CardHeader, CardTitle } from ;
 import Button from "../ui/Button";
 import { useCalendar } from "../../hooks/useCalendar";
 import { CalendarEvent, EventType } from "../../services/calendar.service";
