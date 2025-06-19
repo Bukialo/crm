@@ -10,6 +10,7 @@ import {
   ChevronRight,
   Sparkles,
   BarChart3,
+  Zap,
 } from "lucide-react";
 import { clsx } from "clsx";
 
@@ -25,7 +26,9 @@ const navigation = [
   { name: "Campañas", href: "/campaigns", icon: Mail },
   { name: "Calendario", href: "/calendar", icon: Calendar },
   { name: "Analytics", href: "/analytics", icon: BarChart3 },
-  { name: "IA Assistant", href: "/ai", icon: Sparkles },
+  { name: "Emails", href: "/emails", icon: Sparkles },
+  { name: "Automations", href: "/automations", icon: Zap },
+  { name: "Configuración", href: "/settings", icon: Settings },
 ];
 
 const Sidebar = ({ isOpen, onToggle }: SidebarProps) => {

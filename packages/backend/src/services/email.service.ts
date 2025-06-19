@@ -1,7 +1,7 @@
 import { prisma } from "../lib/prisma";
 import { logger } from "../utils/logger";
 import { NotFoundError, AppError } from "../utils/errors";
-import nodemailer from "nodemailer";
+import * as nodemailer from "nodemailer";
 import { config } from "../config";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { v4 as uuidv4 } from "uuid";
@@ -41,13 +41,13 @@ interface CampaignRequest {
   useAiPersonalization?: boolean;
 }
 
-export class EmailService {
+class EmailServiceClass {
   private transporter: nodemailer.Transporter;
   private genAI: GoogleGenerativeAI;
 
   constructor() {
-    // Configurar transporter de nodemailer
-    this.transporter = nodemailer.createTransporter({
+    // Configurar transporter de nodemailer - CORREGIDO
+    this.transporter = nodemailer.createTransport({
       host: config.email.host,
       port: config.email.port,
       secure: config.email.secure,
@@ -135,7 +135,13 @@ export class EmailService {
   async duplicateTemplate(id: string, createdById: string) {
     const originalTemplate = await this.getTemplate(id);
 
-    const { id: _, createdAt, updatedAt, usageCount, ...templateData } = originalTemplate;
+    const {
+      id: _,
+      createdAt,
+      updatedAt,
+      usageCount,
+      ...templateData
+    } = originalTemplate;
 
     return await this.createTemplate(
       {
@@ -156,11 +162,17 @@ export class EmailService {
       // Si usa template, obtener y procesar
       if (request.templateId) {
         const template = await this.getTemplate(request.templateId);
-        htmlContent = this.processTemplate(template.htmlContent, request.variables || {});
+        htmlContent = this.processTemplate(
+          template.htmlContent,
+          request.variables || {}
+        );
         textContent = template.textContent
           ? this.processTemplate(template.textContent, request.variables || {})
           : undefined;
-        subject = this.processTemplate(template.subject, request.variables || {});
+        subject = this.processTemplate(
+          template.subject,
+          request.variables || {}
+        );
 
         // Incrementar contador de uso
         await prisma.emailTemplate.update({
@@ -179,7 +191,12 @@ export class EmailService {
 
       // Procesar tracking en el contenido
       if (request.trackOpens || request.trackClicks) {
-        htmlContent = this.addTracking(htmlContent, trackingIds[0], request.trackOpens, request.trackClicks);
+        htmlContent = this.addTracking(
+          htmlContent,
+          trackingIds[0],
+          request.trackOpens,
+          request.trackClicks
+        );
       }
 
       // Enviar emails
@@ -194,13 +211,22 @@ export class EmailService {
 
           // Personalización por destinatario si hay variables específicas
           if (request.variables && request.variables[email]) {
-            personalizedHtml = this.processTemplate(htmlContent, request.variables[email]);
-            personalizedSubject = this.processTemplate(subject, request.variables[email]);
+            personalizedHtml = this.processTemplate(
+              htmlContent,
+              request.variables[email]
+            );
+            personalizedSubject = this.processTemplate(
+              subject,
+              request.variables[email]
+            );
           }
 
           // Reemplazar tracking ID específico
           if (trackingId) {
-            personalizedHtml = personalizedHtml.replace(/{{TRACKING_ID}}/g, trackingId);
+            personalizedHtml = personalizedHtml.replace(
+              /{{TRACKING_ID}}/g,
+              trackingId
+            );
           }
 
           const info = await this.transporter.sendMail({
@@ -228,7 +254,9 @@ export class EmailService {
             messageId: info.messageId,
           });
 
-          logger.info(`Email sent successfully to ${email}`, { messageId: info.messageId });
+          logger.info(`Email sent successfully to ${email}`, {
+            messageId: info.messageId,
+          });
         } catch (error) {
           logger.error(`Failed to send email to ${email}:`, error);
 
@@ -251,8 +279,8 @@ export class EmailService {
       }
 
       return {
-        totalSent: results.filter(r => r.success).length,
-        totalFailed: results.filter(r => !r.success).length,
+        totalSent: results.filter((r) => r.success).length,
+        totalFailed: results.filter((r) => !r.success).length,
         results,
       };
     } catch (error) {
@@ -292,7 +320,7 @@ export class EmailService {
 
     // Crear registros de destinatarios
     await prisma.campaignRecipient.createMany({
-      data: contacts.map(contact => ({
+      data: contacts.map((contact) => ({
         campaignId: campaign.id,
         contactId: contact.id,
       })),
@@ -383,7 +411,10 @@ export class EmailService {
           sentCount++;
         }
       } catch (error) {
-        logger.error(`Failed to send campaign email to ${recipient.contact.email}:`, error);
+        logger.error(
+          `Failed to send campaign email to ${recipient.contact.email}:`,
+          error
+        );
       }
     }
 
@@ -401,9 +432,14 @@ export class EmailService {
   }
 
   // Personalización con IA
-  private async personalizeWithAI(content: string, contact: any): Promise<string> {
+  private async personalizeWithAI(
+    content: string,
+    contact: any
+  ): Promise<string> {
     try {
-      const model = this.genAI.getGenerativeModel({ model: config.gemini.model });
+      const model = this.genAI.getGenerativeModel({
+        model: config.gemini.model,
+      });
 
       const prompt = `
         Personaliza este email para el cliente basándote en su información:
@@ -458,7 +494,7 @@ export class EmailService {
     if (criteria.lastTripDays) {
       const cutoffDate = new Date();
       cutoffDate.setDate(cutoffDate.getDate() - criteria.lastTripDays);
-      
+
       where.trips = {
         some: {
           createdAt: { gte: cutoffDate },
@@ -481,7 +517,10 @@ export class EmailService {
   }
 
   // Procesar template con variables
-  private processTemplate(content: string, variables: Record<string, any>): string {
+  private processTemplate(
+    content: string,
+    variables: Record<string, any>
+  ): string {
     let processed = content;
 
     Object.entries(variables).forEach(([key, value]) => {
@@ -493,7 +532,12 @@ export class EmailService {
   }
 
   // Agregar tracking al contenido
-  private addTracking(html: string, trackingId: string, trackOpens = true, trackClicks = true): string {
+  private addTracking(
+    html: string,
+    trackingId: string,
+    trackOpens = true,
+    trackClicks = true
+  ): string {
     let trackedHtml = html.replace(/{{TRACKING_ID}}/g, trackingId);
 
     // Agregar pixel de tracking para apertura
@@ -661,9 +705,9 @@ export class EmailService {
     }
 
     const totalRecipients = campaign.recipients.length;
-    const sentCount = campaign.recipients.filter(r => r.sent).length;
-    const openedCount = campaign.recipients.filter(r => r.opened).length;
-    const clickedCount = campaign.recipients.filter(r => r.clicked).length;
+    const sentCount = campaign.recipients.filter((r) => r.sent).length;
+    const openedCount = campaign.recipients.filter((r) => r.opened).length;
+    const clickedCount = campaign.recipients.filter((r) => r.clicked).length;
 
     return {
       totalRecipients,
@@ -678,7 +722,7 @@ export class EmailService {
 
   async getEmailHistory(filters: EmailHistoryFilter) {
     const { page = 1, pageSize = 20, ...otherFilters } = filters;
-    
+
     const where: any = {
       type: "email_sent",
     };
@@ -727,7 +771,7 @@ export class EmailService {
     ]);
 
     return {
-      items: items.map(activity => ({
+      items: items.map((activity) => ({
         id: activity.id,
         to: activity.metadata?.to || activity.contact?.email,
         subject: activity.description.replace("Email enviado: ", ""),
@@ -751,7 +795,7 @@ export class EmailService {
     const template = await this.getTemplate(templateId);
 
     const processedHtml = this.processTemplate(template.htmlContent, variables);
-    const processedText = template.textContent 
+    const processedText = template.textContent
       ? this.processTemplate(template.textContent, variables)
       : undefined;
     const processedSubject = this.processTemplate(template.subject, variables);
@@ -763,228 +807,7 @@ export class EmailService {
       variables: template.variables,
     };
   }
+}
 
-  // Templates predefinidos
-  async createDefaultTemplates(userId: string) {
-    const defaultTemplates = [
-      {
-        name: "Bienvenida",
-        category: "WELCOME",
-        subject: "¡Bienvenido a Bukialo, {{firstName}}!",
-        htmlContent: `
-          <!DOCTYPE html>
-          <html>
-            <head>
-              <meta charset="utf-8">
-              <meta name="viewport" content="width=device-width, initial-scale=1.0">
-              <title>Bienvenido a Bukialo</title>
-            </head>
-            <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-              <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
-                <h1 style="color: white; margin: 0; font-size: 28px;">✈️ Bukialo</h1>
-                <p style="color: rgba(255,255,255,0.9); margin: 10px 0 0 0;">Tu agencia de viajes de confianza</p>
-              </div>
-              
-              <div style="padding: 30px; background: #f9f9f9; border-radius: 0 0 10px 10px;">
-                <h2 style="color: #333; margin-top: 0;">¡Hola {{firstName}}!</h2>
-                
-                <p>Bienvenido a Bukialo, donde convertimos tus sueños de viaje en realidad.</p>
-                
-                <p>Tu agente asignado <strong>{{agentName}}</strong> estará en contacto contigo pronto para ayudarte a planificar tu próxima aventura.</p>
-                
-                <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #667eea;">
-                  <h3 style="margin-top: 0; color: #667eea;">¿Qué puedes esperar?</h3>
-                  <ul style="margin: 0; padding-left: 20px;">
-                    <li>Asesoría personalizada para tus viajes</li>
-                    <li>Ofertas exclusivas en destinos populares</li>
-                    <li>Soporte 24/7 durante tu viaje</li>
-                    <li>Experiencias únicas y memorables</li>
-                  </ul>
-                </div>
-                
-                <p>Si tienes alguna pregunta, no dudes en contactarnos.</p>
-                
-                <p style="margin-bottom: 0;">
-                  Saludos cordiales,<br>
-                  <strong>Equipo Bukialo</strong>
-                </p>
-              </div>
-            </body>
-          </html>
-        `,
-        textContent: `
-          ¡Hola {{firstName}}!
-          
-          Bienvenido a Bukialo, donde convertimos tus sueños de viaje en realidad.
-          
-          Tu agente asignado {{agentName}} estará en contacto contigo pronto para ayudarte a planificar tu próxima aventura.
-          
-          ¿Qué puedes esperar?
-          - Asesoría personalizada para tus viajes
-          - Ofertas exclusivas en destinos populares  
-          - Soporte 24/7 durante tu viaje
-          - Experiencias únicas y memorables
-          
-          Si tienes alguna pregunta, no dudes en contactarnos.
-          
-          Saludos cordiales,
-          Equipo Bukialo
-        `,
-        variables: [
-          { name: "firstName", type: "text", required: true, description: "Nombre del cliente" },
-          { name: "agentName", type: "text", required: true, description: "Nombre del agente asignado" },
-        ],
-      },
-      {
-        name: "Cotización de Viaje",
-        category: "QUOTE",
-        subject: "Tu cotización para {{destination}} está lista 🎯",
-        htmlContent: `
-          <!DOCTYPE html>
-          <html>
-            <head>
-              <meta charset="utf-8">
-              <meta name="viewport" content="width=device-width, initial-scale=1.0">
-              <title>Cotización de Viaje</title>
-            </head>
-            <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-              <div style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
-                <h1 style="color: white; margin: 0; font-size: 28px;">💼 Cotización Lista</h1>
-              </div>
-              
-              <div style="padding: 30px; background: #f9f9f9; border-radius: 0 0 10px 10px;">
-                <h2 style="color: #333; margin-top: 0;">Hola {{firstName}},</h2>
-                
-                <p>¡Excelentes noticias! Tu cotización para viajar a <strong>{{destination}}</strong> está lista.</p>
-                
-                <div style="background: white; padding: 25px; border-radius: 10px; margin: 25px 0; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
-                  <h3 style="margin-top: 0; color: #f5576c; text-align: center;">Detalles del Viaje</h3>
-                  
-                  <table style="width: 100%; border-collapse: collapse;">
-                    <tr>
-                      <td style="padding: 10px 0; border-bottom: 1px solid #eee;"><strong>Destino:</strong></td>
-                      <td style="padding: 10px 0; border-bottom: 1px solid #eee; text-align: right;">{{destination}}</td>
-                    </tr>
-                    <tr>
-                      <td style="padding: 10px 0; border-bottom: 1px solid #eee;"><strong>Fecha de salida:</strong></td>
-                      <td style="padding: 10px 0; border-bottom: 1px solid #eee; text-align: right;">{{departureDate}}</td>
-                    </tr>
-                    <tr>
-                      <td style="padding: 10px 0; border-bottom: 1px solid #eee;"><strong>Duración:</strong></td>
-                      <td style="padding: 10px 0; border-bottom: 1px solid #eee; text-align: right;">{{duration}} días</td>
-                    </tr>
-                    <tr>
-                      <td style="padding: 10px 0; border-bottom: 1px solid #eee;"><strong>Viajeros:</strong></td>
-                      <td style="padding: 10px 0; border-bottom: 1px solid #eee; text-align: right;">{{travelers}} personas</td>
-                    </tr>
-                    <tr style="background: #f093fb; color: white;">
-                      <td style="padding: 15px 10px; font-size: 18px;"><strong>Precio Total:</strong></td>
-                      <td style="padding: 15px 10px; text-align: right; font-size: 24px; font-weight: bold;">${{totalPrice}}</td>
-                    </tr>
-                  </table>
-                </div>
-                
-                <div style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; border-radius: 8px; margin: 20px 0;">
-                  <p style="margin: 0; color: #856404;">
-                    ⏰ <strong>Esta cotización es válida por 7 días.</strong> ¡No dejes pasar esta oportunidad!
-                  </p>
-                </div>
-                
-                <div style="text-align: center; margin: 30px 0;">
-                  <a href="{{bookingUrl}}" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; padding: 15px 30px; text-decoration: none; border-radius: 25px; font-weight: bold; display: inline-block;">
-                    ✈️ Reservar Ahora
-                  </a>
-                </div>
-                
-                <p>Si tienes alguna pregunta sobre esta cotización, no dudes en contactarme.</p>
-                
-                <p style="margin-bottom: 0;">
-                  Saludos cordiales,<br>
-                  <strong>{{agentName}}</strong><br>
-                  <span style="color: #666;">Tu agente de viajes en Bukialo</span>
-                </p>
-              </div>
-            </body>
-          </html>
-        `,
-        variables: [
-          { name: "firstName", type: "text", required: true },
-          { name: "destination", type: "text", required: true },
-          { name: "departureDate", type: "date", required: true },
-          { name: "duration", type: "number", required: true },
-          { name: "travelers", type: "number", required: true },
-          { name: "totalPrice", type: "number", required: true },
-          { name: "bookingUrl", type: "text", required: false },
-          { name: "agentName", type: "text", required: true },
-        ],
-      },
-      {
-        name: "Seguimiento Post-Viaje",
-        category: "POST_TRIP",
-        subject: "¿Cómo estuvo tu viaje a {{destination}}? 🌟",
-        htmlContent: `
-          <!DOCTYPE html>
-          <html>
-            <head>
-              <meta charset="utf-8">
-              <meta name="viewport" content="width=device-width, initial-scale=1.0">
-              <title>Feedback de Viaje</title>
-            </head>
-            <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-              <div style="background: linear-gradient(135deg, #00d4ff 0%, #0099cc 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
-                <h1 style="color: white; margin: 0; font-size: 28px;">🌟 ¿Cómo estuvo tu viaje?</h1>
-              </div>
-              
-              <div style="padding: 30px; background: #f9f9f9; border-radius: 0 0 10px 10px;">
-                <h2 style="color: #333; margin-top: 0;">¡Hola {{firstName}}!</h2>
-                
-                <p>Esperamos que hayas tenido un viaje increíble a <strong>{{destination}}</strong>. 🎉</p>
-                
-                <p>Tu opinión es muy importante para nosotros y nos ayuda a mejorar nuestros servicios para futuros viajeros.</p>
-                
-                <div style="background: white; padding: 25px; border-radius: 10px; margin: 25px 0; text-align: center;">
-                  <h3 style="margin-top: 0; color: #00d4ff;">Comparte tu experiencia</h3>
-                  
-                  <div style="margin: 20px 0;">
-                    <a href="{{reviewUrl}}" style="background: linear-gradient(135deg, #00d4ff 0%, #0099cc 100%); color: white; padding: 15px 30px; text-decoration: none; border-radius: 25px; font-weight: bold; display: inline-block; margin: 0 10px;">
-                      ⭐ Dejar Reseña
-                    </a>
-                  </div>
-                  
-                  <p style="color: #666; margin: 0;">Solo tomará 2 minutos</p>
-                </div>
-                
-                <div style="background: #e8f4fd; border-left: 4px solid #00d4ff; padding: 20px; margin: 20px 0;">
-                  <h4 style="margin-top: 0; color: #00d4ff;">💡 ¿Sabías que...?</h4>
-                  <p style="margin-bottom: 0;">Los clientes que comparten sus experiencias reciben descuentos especiales en sus próximos viajes. ¡Tu próxima aventura podría estar más cerca de lo que piensas!</p>
-                </div>
-                
-                <p>Si tienes alguna sugerencia o comentario adicional, no dudes en responder a este email.</p>
-                
-                <p style="margin-bottom: 0;">
-                  ¡Gracias por viajar con nosotros!<br>
-                  <strong>{{agentName}}</strong><br>
-                  <span style="color: #666;">Equipo Bukialo</span>
-                </p>
-              </div>
-            </body>
-          </html>
-        `,
-        variables: [
-          { name: "firstName", type: "text", required: true },
-          { name: "destination", type: "text", required: true },
-          { name: "reviewUrl", type: "text", required: false },
-          { name: "agentName", type: "text", required: true },
-        ],
-      },
-    ];
-
-    for (const templateData of defaultTemplates) {
-      try {
-        await this.createTemplate(templateData, userId);
-        logger.info(`Default template "${templateData.name}" created`);
-      } catch (error) {
-        logger.warn(`Template "${templateData.name}" already exists or failed to create`);
-      }
-    }
-  }
+// Crear una instancia única del servicio
+export const emailService = new EmailServiceClass();

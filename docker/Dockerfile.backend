@@ -1,0 +1,77 @@
+# Dockerfile para Backend Node.js
+# Etapa de construcción
+FROM node:18-alpine AS builder
+
+# Instalar dependencias del sistema necesarias para Prisma
+RUN apk add --no-cache openssl
+
+# Establecer directorio de trabajo
+WORKDIR /app
+
+# Copiar archivos de configuración de workspace
+COPY package*.json ./
+COPY tsconfig.json ./
+
+# Copiar shared package
+COPY packages/shared ./packages/shared
+
+# Copiar backend package
+COPY packages/backend ./packages/backend
+
+# Instalar dependencias
+RUN npm ci --only=production
+
+# Generar Prisma Client
+WORKDIR /app/packages/backend
+RUN npx prisma generate
+
+# Construir la aplicación
+RUN npm run build
+
+# Etapa de producción
+FROM node:18-alpine AS production
+
+# Instalar dependencias del sistema
+RUN apk add --no-cache \
+    openssl \
+    curl \
+    && addgroup -g 1001 -S nodejs \
+    && adduser -S bukialo -u 1001
+
+# Establecer directorio de trabajo
+WORKDIR /app
+
+# Copiar archivos de package.json
+COPY --from=builder /app/package*.json ./
+COPY --from=builder /app/packages/backend/package*.json ./packages/backend/
+
+# Copiar shared build
+COPY --from=builder /app/packages/shared/dist ./packages/shared/dist
+COPY --from=builder /app/packages/shared/package.json ./packages/shared/
+
+# Copiar backend build y archivos necesarios
+COPY --from=builder /app/packages/backend/dist ./packages/backend/dist
+COPY --from=builder /app/packages/backend/prisma ./packages/backend/prisma
+COPY --from=builder /app/packages/backend/node_modules ./packages/backend/node_modules
+
+# Crear directorio para uploads y logs
+RUN mkdir -p /app/uploads /app/logs \
+    && chown -R bukialo:nodejs /app
+
+# Cambiar al usuario no-root
+USER bukialo
+
+# Exponer puerto
+EXPOSE 5000
+
+# Variables de entorno
+ENV NODE_ENV=production
+ENV PORT=5000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:5000/health || exit 1
+
+# Comando de inicio
+WORKDIR /app/packages/backend
+CMD ["node", "dist/index.js"]

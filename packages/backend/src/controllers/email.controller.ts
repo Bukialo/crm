@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { EmailService } from "../services/email.service";
+import { emailService } from "../services/email.service"; // CORREGIDO: usar la instancia exportada
 import { asyncHandler } from "../middlewares/error.middleware";
 import { z } from "zod";
 
@@ -66,16 +66,12 @@ const sendCampaignSchema = z.object({
 });
 
 export class EmailController {
-  private emailService: EmailService;
-
-  constructor() {
-    this.emailService = new EmailService();
-  }
+  // CORREGIDO: No necesitamos instanciar el servicio, usamos la instancia exportada
 
   // Gestión de Templates
   getTemplates = asyncHandler(async (req: Request, res: Response) => {
     const { category } = req.query;
-    const templates = await this.emailService.getTemplates(category as string);
+    const templates = await emailService.getTemplates(category as string);
 
     res.json({
       success: true,
@@ -85,7 +81,7 @@ export class EmailController {
 
   getTemplate = asyncHandler(async (req: Request, res: Response) => {
     const { id } = req.params;
-    const template = await this.emailService.getTemplate(id);
+    const template = await emailService.getTemplate(id);
 
     res.json({
       success: true,
@@ -95,7 +91,7 @@ export class EmailController {
 
   createTemplate = asyncHandler(async (req: Request, res: Response) => {
     const validatedData = createTemplateSchema.parse(req.body);
-    const template = await this.emailService.createTemplate(
+    const template = await emailService.createTemplate(
       validatedData,
       req.user!.id
     );
@@ -110,7 +106,7 @@ export class EmailController {
   updateTemplate = asyncHandler(async (req: Request, res: Response) => {
     const { id } = req.params;
     const validatedData = createTemplateSchema.partial().parse(req.body);
-    const template = await this.emailService.updateTemplate(id, validatedData);
+    const template = await emailService.updateTemplate(id, validatedData);
 
     res.json({
       success: true,
@@ -121,7 +117,7 @@ export class EmailController {
 
   deleteTemplate = asyncHandler(async (req: Request, res: Response) => {
     const { id } = req.params;
-    await this.emailService.deleteTemplate(id);
+    await emailService.deleteTemplate(id);
 
     res.json({
       success: true,
@@ -131,10 +127,7 @@ export class EmailController {
 
   duplicateTemplate = asyncHandler(async (req: Request, res: Response) => {
     const { id } = req.params;
-    const template = await this.emailService.duplicateTemplate(
-      id,
-      req.user!.id
-    );
+    const template = await emailService.duplicateTemplate(id, req.user!.id);
 
     res.status(201).json({
       success: true,
@@ -146,10 +139,7 @@ export class EmailController {
   // Envío de Emails
   sendEmail = asyncHandler(async (req: Request, res: Response) => {
     const validatedData = sendEmailSchema.parse(req.body);
-    const result = await this.emailService.sendEmail(
-      validatedData,
-      req.user!.id
-    );
+    const result = await emailService.sendEmail(validatedData, req.user!.id);
 
     res.json({
       success: true,
@@ -160,7 +150,7 @@ export class EmailController {
 
   sendTestEmail = asyncHandler(async (req: Request, res: Response) => {
     const validatedData = sendEmailSchema.parse(req.body);
-    const result = await this.emailService.sendTestEmail(
+    const result = await emailService.sendTestEmail(
       { ...validatedData, to: [req.user!.email] },
       req.user!.id
     );
@@ -175,7 +165,7 @@ export class EmailController {
   // Campañas
   sendCampaign = asyncHandler(async (req: Request, res: Response) => {
     const validatedData = sendCampaignSchema.parse(req.body);
-    const campaign = await this.emailService.sendCampaign(
+    const campaign = await emailService.sendCampaign(
       validatedData,
       req.user!.id
     );
@@ -188,7 +178,7 @@ export class EmailController {
   });
 
   getCampaigns = asyncHandler(async (req: Request, res: Response) => {
-    const campaigns = await this.emailService.getCampaigns();
+    const campaigns = await emailService.getCampaigns();
 
     res.json({
       success: true,
@@ -198,7 +188,7 @@ export class EmailController {
 
   getCampaignStats = asyncHandler(async (req: Request, res: Response) => {
     const { id } = req.params;
-    const stats = await this.emailService.getCampaignStats(id);
+    const stats = await emailService.getCampaignStats(id);
 
     res.json({
       success: true,
@@ -217,7 +207,7 @@ export class EmailController {
       pageSize = 20,
     } = req.query;
 
-    const result = await this.emailService.getEmailHistory({
+    const result = await emailService.getEmailHistory({
       contactId: contactId as string,
       status: status as string,
       dateFrom: dateFrom ? new Date(dateFrom as string) : undefined,
@@ -236,10 +226,7 @@ export class EmailController {
   previewTemplate = asyncHandler(async (req: Request, res: Response) => {
     const { id } = req.params;
     const { variables } = req.body;
-    const preview = await this.emailService.previewTemplate(
-      id,
-      variables || {}
-    );
+    const preview = await emailService.previewTemplate(id, variables || {});
 
     res.json({
       success: true,
@@ -250,7 +237,7 @@ export class EmailController {
   // Métricas
   getEmailStats = asyncHandler(async (req: Request, res: Response) => {
     const { period = "month" } = req.query;
-    const stats = await this.emailService.getEmailStats(period as string);
+    const stats = await emailService.getEmailStats(period as string);
 
     res.json({
       success: true,
@@ -261,7 +248,7 @@ export class EmailController {
   // Tracking
   trackEmailOpen = asyncHandler(async (req: Request, res: Response) => {
     const { trackingId } = req.params;
-    await this.emailService.trackEmailOpen(trackingId);
+    await emailService.trackEmailOpen(trackingId);
 
     // Responder con imagen 1x1 pixel transparente
     const pixel = Buffer.from(
@@ -283,11 +270,12 @@ export class EmailController {
     const { trackingId } = req.params;
     const { url } = req.query;
 
-    await this.emailService.trackEmailClick(trackingId, url as string);
+    await emailService.trackEmailClick(trackingId, url as string);
 
     // Redirigir a la URL original
     res.redirect(decodeURIComponent(url as string));
   });
 }
 
+// CORREGIDO: Exportar instancia directamente
 export const emailController = new EmailController();

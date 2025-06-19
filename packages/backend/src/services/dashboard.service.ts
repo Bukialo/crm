@@ -1,7 +1,5 @@
 import { prisma } from "../lib/prisma";
 import { logger } from "../utils/logger";
-import { startOfMonth, endOfMonth, subMonths, format } from "date-fns";
-import { es } from "date-fns/locale";
 
 export interface DashboardStats {
   totalContacts: number;
@@ -59,6 +57,46 @@ export interface RecentActivity {
 }
 
 export class DashboardService {
+  private startOfMonth(date: Date): Date {
+    return new Date(date.getFullYear(), date.getMonth(), 1);
+  }
+
+  private endOfMonth(date: Date): Date {
+    return new Date(
+      date.getFullYear(),
+      date.getMonth() + 1,
+      0,
+      23,
+      59,
+      59,
+      999
+    );
+  }
+
+  private subMonths(date: Date, months: number): Date {
+    const result = new Date(date);
+    result.setMonth(result.getMonth() - months);
+    return result;
+  }
+
+  private formatMonth(date: Date): string {
+    const months = [
+      "Ene",
+      "Feb",
+      "Mar",
+      "Abr",
+      "May",
+      "Jun",
+      "Jul",
+      "Ago",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dic",
+    ];
+    return months[date.getMonth()];
+  }
+
   async getDashboardData(userId: string) {
     try {
       const [
@@ -91,10 +129,10 @@ export class DashboardService {
   async getStats(userId: string): Promise<DashboardStats> {
     try {
       const now = new Date();
-      const startThisMonth = startOfMonth(now);
-      const endThisMonth = endOfMonth(now);
-      const startLastMonth = startOfMonth(subMonths(now, 1));
-      const endLastMonth = endOfMonth(subMonths(now, 1));
+      const startThisMonth = this.startOfMonth(now);
+      const endThisMonth = this.endOfMonth(now);
+      const startLastMonth = this.startOfMonth(this.subMonths(now, 1));
+      const endLastMonth = this.endOfMonth(this.subMonths(now, 1));
 
       // Total contacts
       const totalContacts = await prisma.contact.count();
@@ -220,14 +258,14 @@ export class DashboardService {
 
       // Generate last 6 months
       for (let i = 5; i >= 0; i--) {
-        months.push(subMonths(now, i));
+        months.push(this.subMonths(now, i));
       }
 
       const salesData: SalesData[] = [];
 
       for (const month of months) {
-        const startDate = startOfMonth(month);
-        const endDate = endOfMonth(month);
+        const startDate = this.startOfMonth(month);
+        const endDate = this.endOfMonth(month);
 
         const [trips, revenue] = await Promise.all([
           prisma.trip.count({
@@ -254,7 +292,7 @@ export class DashboardService {
         ]);
 
         salesData.push({
-          month: format(month, "MMM", { locale: es }),
+          month: this.formatMonth(month),
           sales: revenue._sum.finalPrice || 0,
           trips,
         });

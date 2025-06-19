@@ -19,6 +19,7 @@
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
     "baseUrl": ".",
+    "types": ["@vitejs/plugin-react"],
     "paths": {
       "@/*": ["src/*"],
       "@bukialo/shared": ["../shared/src"],

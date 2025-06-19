@@ -6,6 +6,7 @@ import { MessageBubble } from "./MessageBubble";
 import Card from "../ui/Card";
 import Button from "../ui/Button";
 import { clsx } from "clsx";
+import { X } from "lucide-react";
 
 export const AiChat = () => {
   const { isOpen, setOpen } = useAiStore();

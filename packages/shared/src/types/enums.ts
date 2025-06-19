@@ -1,19 +1,129 @@
 // Este archivo contiene enums y constantes compartidas
 // que se pueden usar tanto en frontend como backend
 
+// Prisma Enums - Exportar para uso compartido
+export enum ContactStatus {
+  INTERESADO = "INTERESADO",
+  PASAJERO = "PASAJERO",
+  CLIENTE = "CLIENTE",
+}
+
+export enum BudgetRange {
+  LOW = "LOW",
+  MEDIUM = "MEDIUM",
+  HIGH = "HIGH",
+  LUXURY = "LUXURY",
+}
+
+export enum TravelStyle {
+  ADVENTURE = "ADVENTURE",
+  RELAXATION = "RELAXATION",
+  CULTURAL = "CULTURAL",
+  BUSINESS = "BUSINESS",
+  LUXURY = "LUXURY",
+  FAMILY = "FAMILY",
+  ROMANTIC = "ROMANTIC",
+}
+
+export enum ContactSource {
+  WEBSITE = "WEBSITE",
+  REFERRAL = "REFERRAL",
+  SOCIAL_MEDIA = "SOCIAL_MEDIA",
+  ADVERTISING = "ADVERTISING",
+  DIRECT = "DIRECT",
+  PARTNER = "PARTNER",
+  OTHER = "OTHER",
+}
+
+export enum TripStatus {
+  QUOTE = "QUOTE",
+  BOOKED = "BOOKED",
+  CONFIRMED = "CONFIRMED",
+  COMPLETED = "COMPLETED",
+  CANCELLED = "CANCELLED",
+}
+
+export enum UserRole {
+  ADMIN = "ADMIN",
+  MANAGER = "MANAGER",
+  AGENT = "AGENT",
+  VIEWER = "VIEWER",
+}
+
+export enum TaskStatus {
+  PENDING = "PENDING",
+  IN_PROGRESS = "IN_PROGRESS",
+  COMPLETED = "COMPLETED",
+  CANCELLED = "CANCELLED",
+}
+
+export enum TaskPriority {
+  LOW = "LOW",
+  MEDIUM = "MEDIUM",
+  HIGH = "HIGH",
+  URGENT = "URGENT",
+}
+
+export enum CampaignType {
+  EMAIL = "EMAIL",
+  SMS = "SMS",
+  WHATSAPP = "WHATSAPP",
+}
+
+export enum CampaignStatus {
+  DRAFT = "DRAFT",
+  SCHEDULED = "SCHEDULED",
+  SENDING = "SENDING",
+  SENT = "SENT",
+  CANCELLED = "CANCELLED",
+}
+
+export enum EventType {
+  CLIENT_MEETING = "CLIENT_MEETING",
+  TRIP_DEPARTURE = "TRIP_DEPARTURE",
+  TRIP_RETURN = "TRIP_RETURN",
+  FOLLOW_UP_CALL = "FOLLOW_UP_CALL",
+  PAYMENT_DUE = "PAYMENT_DUE",
+  SEASONAL_CAMPAIGN = "SEASONAL_CAMPAIGN",
+  TASK = "TASK",
+  OTHER = "OTHER",
+}
+
+export enum AutomationTriggerType {
+  CONTACT_CREATED = "CONTACT_CREATED",
+  TRIP_QUOTE_REQUESTED = "TRIP_QUOTE_REQUESTED",
+  PAYMENT_OVERDUE = "PAYMENT_OVERDUE",
+  TRIP_COMPLETED = "TRIP_COMPLETED",
+  NO_ACTIVITY_30_DAYS = "NO_ACTIVITY_30_DAYS",
+  SEASONAL_OPPORTUNITY = "SEASONAL_OPPORTUNITY",
+  BIRTHDAY = "BIRTHDAY",
+  CUSTOM = "CUSTOM",
+}
+
+export enum AutomationActionType {
+  SEND_EMAIL = "SEND_EMAIL",
+  CREATE_TASK = "CREATE_TASK",
+  SCHEDULE_CALL = "SCHEDULE_CALL",
+  ADD_TAG = "ADD_TAG",
+  UPDATE_STATUS = "UPDATE_STATUS",
+  GENERATE_QUOTE = "GENERATE_QUOTE",
+  ASSIGN_AGENT = "ASSIGN_AGENT",
+  SEND_WHATSAPP = "SEND_WHATSAPP",
+}
+
 // Contact Status Pipeline
 export const CONTACT_STATUS_FLOW = {
   INTERESADO: {
     label: "Interesado",
     color: "blue",
     icon: "UserCheck",
-    next: "PASAJERO",
+    next: ContactStatus.PASAJERO,
   },
   PASAJERO: {
     label: "Pasajero",
     color: "amber",
     icon: "Plane",
-    next: "CLIENTE",
+    next: ContactStatus.CLIENTE,
   },
   CLIENTE: {
     label: "Cliente",
@@ -95,17 +205,17 @@ export const TRIP_STATUS_FLOW = {
   QUOTE: {
     label: "Cotización",
     color: "yellow",
-    next: "BOOKED",
+    next: TripStatus.BOOKED,
   },
   BOOKED: {
     label: "Reservado",
     color: "blue",
-    next: "CONFIRMED",
+    next: TripStatus.CONFIRMED,
   },
   CONFIRMED: {
     label: "Confirmado",
     color: "green",
-    next: "COMPLETED",
+    next: TripStatus.COMPLETED,
   },
   COMPLETED: {
     label: "Completado",
@@ -184,6 +294,71 @@ export const ACTIVITY_TYPES = {
     label: "Nota agregada",
     icon: "StickyNote",
     color: "yellow",
+  },
+  trip_created: {
+    label: "Viaje creado",
+    icon: "Plane",
+    color: "blue",
+  },
+  trip_updated: {
+    label: "Viaje actualizado",
+    icon: "Edit",
+    color: "blue",
+  },
+  trip_status_changed: {
+    label: "Estado de viaje cambiado",
+    icon: "RefreshCw",
+    color: "orange",
+  },
+  trip_deleted: {
+    label: "Viaje eliminado",
+    icon: "Trash",
+    color: "red",
+  },
+  contact_created: {
+    label: "Contacto creado",
+    icon: "UserPlus",
+    color: "green",
+  },
+  contact_updated: {
+    label: "Contacto actualizado",
+    icon: "UserCheck",
+    color: "blue",
+  },
+  contact_deleted: {
+    label: "Contacto eliminado",
+    icon: "UserX",
+    color: "red",
+  },
+  status_changed: {
+    label: "Estado cambiado",
+    icon: "ArrowRight",
+    color: "orange",
+  },
+  campaign_created: {
+    label: "Campaña creada",
+    icon: "Megaphone",
+    color: "purple",
+  },
+  campaign_sent: {
+    label: "Campaña enviada",
+    icon: "Send",
+    color: "green",
+  },
+  event_created: {
+    label: "Evento creado",
+    icon: "Calendar",
+    color: "blue",
+  },
+  event_updated: {
+    label: "Evento actualizado",
+    icon: "CalendarCheck",
+    color: "blue",
+  },
+  event_deleted: {
+    label: "Evento eliminado",
+    icon: "CalendarX",
+    color: "red",
   },
 } as const;
 
@@ -315,6 +490,24 @@ export const PERMISSIONS = {
   USER_CREATE: "user:create",
   USER_EDIT: "user:edit",
   USER_DELETE: "user:delete",
+
+  // Calendar
+  CALENDAR_VIEW: "calendar:view",
+  CALENDAR_CREATE: "calendar:create",
+  CALENDAR_EDIT: "calendar:edit",
+  CALENDAR_DELETE: "calendar:delete",
+
+  // Automations
+  AUTOMATION_VIEW: "automation:view",
+  AUTOMATION_CREATE: "automation:create",
+  AUTOMATION_EDIT: "automation:edit",
+  AUTOMATION_DELETE: "automation:delete",
+
+  // Email Templates
+  TEMPLATE_VIEW: "template:view",
+  TEMPLATE_CREATE: "template:create",
+  TEMPLATE_EDIT: "template:edit",
+  TEMPLATE_DELETE: "template:delete",
 } as const;
 
 // Role Permissions Mapping
@@ -335,6 +528,15 @@ export const ROLE_PERMISSIONS = {
     PERMISSIONS.REPORT_VIEW,
     PERMISSIONS.REPORT_EXPORT,
     PERMISSIONS.USER_VIEW,
+    PERMISSIONS.CALENDAR_VIEW,
+    PERMISSIONS.CALENDAR_CREATE,
+    PERMISSIONS.CALENDAR_EDIT,
+    PERMISSIONS.AUTOMATION_VIEW,
+    PERMISSIONS.AUTOMATION_CREATE,
+    PERMISSIONS.AUTOMATION_EDIT,
+    PERMISSIONS.TEMPLATE_VIEW,
+    PERMISSIONS.TEMPLATE_CREATE,
+    PERMISSIONS.TEMPLATE_EDIT,
   ],
   AGENT: [
     PERMISSIONS.CONTACT_VIEW,
@@ -345,11 +547,17 @@ export const ROLE_PERMISSIONS = {
     PERMISSIONS.TRIP_EDIT,
     PERMISSIONS.CAMPAIGN_VIEW,
     PERMISSIONS.REPORT_VIEW,
+    PERMISSIONS.CALENDAR_VIEW,
+    PERMISSIONS.CALENDAR_CREATE,
+    PERMISSIONS.CALENDAR_EDIT,
+    PERMISSIONS.TEMPLATE_VIEW,
   ],
   VIEWER: [
     PERMISSIONS.CONTACT_VIEW,
     PERMISSIONS.TRIP_VIEW,
     PERMISSIONS.CAMPAIGN_VIEW,
     PERMISSIONS.REPORT_VIEW,
+    PERMISSIONS.CALENDAR_VIEW,
+    PERMISSIONS.TEMPLATE_VIEW,
   ],
 } as const;
