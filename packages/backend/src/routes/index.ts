@@ -6,7 +6,7 @@ import calendarRoutes from "./calendar.routes";
 import automationRoutes from "./automation.routes";
 import dashboardRoutes from "./dashboard.routes";
 import campaignRoutes from "./campaign.routes";
-// import tripRoutes from './trip.routes' // Para futuro
+import tripRoutes from './trip.routes' 
 // import userRoutes from './user.routes' // Para futuro
 // import authRoutes from './auth.routes' // Para futuro
 
