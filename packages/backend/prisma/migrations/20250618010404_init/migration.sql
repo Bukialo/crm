@@ -340,6 +340,29 @@ CREATE TABLE "SystemSetting" (
     CONSTRAINT "SystemSetting_pkey" PRIMARY KEY ("id")
 );
 
+-- CreateTable for EmailHistory
+CREATE TABLE "EmailHistory" (
+    "id" TEXT NOT NULL,
+    "to" TEXT NOT NULL,
+    "subject" TEXT NOT NULL,
+    "htmlContent" TEXT NOT NULL,
+    "textContent" TEXT,
+    "templateId" TEXT,
+    "templateName" TEXT,
+    "status" TEXT NOT NULL DEFAULT 'sent',
+    "messageId" TEXT,
+    "sentAt" TIMESTAMP(3),
+    "openedAt" TIMESTAMP(3),
+    "clickedAt" TIMESTAMP(3),
+    "bounced" BOOLEAN NOT NULL DEFAULT false,
+    "bouncedAt" TIMESTAMP(3),
+    "error" TEXT,
+    "metadata" JSONB,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "EmailHistory_pkey" PRIMARY KEY ("id")
+);
+
 -- CreateIndex
 CREATE UNIQUE INDEX "User_email_key" ON "User"("email");
 
@@ -468,6 +491,13 @@ CREATE UNIQUE INDEX "SystemSetting_key_key" ON "SystemSetting"("key");
 
 -- CreateIndex
 CREATE INDEX "SystemSetting_key_idx" ON "SystemSetting"("key");
+
+-- CreateIndex
+CREATE INDEX "EmailHistory_to_idx" ON "EmailHistory"("to");
+CREATE INDEX "EmailHistory_templateId_idx" ON "EmailHistory"("templateId");
+CREATE INDEX "EmailHistory_status_idx" ON "EmailHistory"("status");
+CREATE INDEX "EmailHistory_sentAt_idx" ON "EmailHistory"("sentAt");
+CREATE INDEX "EmailHistory_createdAt_idx" ON "EmailHistory"("createdAt");
 
 -- AddForeignKey
 ALTER TABLE "Contact" ADD CONSTRAINT "Contact_assignedAgentId_fkey" FOREIGN KEY ("assignedAgentId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
