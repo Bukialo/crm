@@ -18,12 +18,12 @@ import {
   ArrowRight,
   Filter,
 } from "lucide-react";
-import Card, { CardContent, CardHeader, CardTitle } from ;
+import Card, { CardContent, CardHeader, CardTitle } from  "../../components/ui/Card"; ;
 import Button from "../ui/Button";
 import { useCalendar } from "../../hooks/useCalendar";
 import { CalendarEvent, EventType } from "../../services/calendar.service";
-import { EventModal } from "./EventModal";
-import { EventCard } from "./EventCard";
+import { EventModal } from "../modal/eventModal";
+import { EventCard } from "../../components/ui/EventCard";
 import { clsx } from "clsx";
 
 type CalendarView = "month" | "week" | "day" | "agenda";
