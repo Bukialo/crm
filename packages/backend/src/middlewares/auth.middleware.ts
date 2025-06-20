@@ -44,10 +44,15 @@ export const authenticate = async (
     // Verify Firebase token
     const decodedToken = await admin.auth().verifyIdToken(token);
 
+    // Ensure we have required fields from Firebase
+    if (!decodedToken.email) {
+      throw new AppError("User email not available from Firebase token", 401);
+    }
+
     // Get or create user in our database
     const user = await authService.findOrCreateUser({
       uid: decodedToken.uid,
-      email: decodedToken.email!,
+      email: decodedToken.email,
       displayName: decodedToken.name,
     });
 
@@ -215,9 +220,14 @@ export const validateFirebaseToken = async (
     const token = authHeader.split(" ")[1];
     const decodedToken = await admin.auth().verifyIdToken(token);
 
+    // Ensure we have required fields from Firebase
+    if (!decodedToken.email) {
+      throw new AppError("User email not available from Firebase token", 401);
+    }
+
     req.user = {
       id: decodedToken.uid,
-      email: decodedToken.email!,
+      email: decodedToken.email,
       firstName: decodedToken.name?.split(" ")[0] || "",
       lastName: decodedToken.name?.split(" ").slice(1).join(" ") || "",
       role: "UNKNOWN",

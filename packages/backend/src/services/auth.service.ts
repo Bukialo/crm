@@ -212,6 +212,11 @@ export class AuthService {
     displayName?: string;
   }): Promise<User> {
     try {
+      // Validate required fields
+      if (!firebaseUser.uid || !firebaseUser.email) {
+        throw new AppError("Missing required Firebase user information", 400);
+      }
+
       let user = await this.getUserByFirebaseUid(firebaseUser.uid);
 
       if (!user) {
@@ -237,6 +242,9 @@ export class AuthService {
       return user;
     } catch (error) {
       logger.error("Error in findOrCreateUser:", error);
+      if (error instanceof AppError) {
+        throw error;
+      }
       throw new AppError("Error processing user authentication", 500);
     }
   }
