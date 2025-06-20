@@ -40,23 +40,39 @@ export const authenticate = async (
     }
 
     const token = authHeader.split(" ")[1];
+    if (!token) {
+      throw new AppError("Invalid token format", 401);
+    }
+
+    logger.info("Authenticating user with Firebase token");
 
     // Verify Firebase token
     const decodedToken = await admin.auth().verifyIdToken(token);
+    logger.info(`Firebase token verified for UID: ${decodedToken.uid}, Email: ${decodedToken.email}`);
 
     // Ensure we have required fields from Firebase
     if (!decodedToken.email) {
+      logger.error("Firebase token missing email field");
       throw new AppError("User email not available from Firebase token", 401);
     }
 
+    if (!decodedToken.uid) {
+      logger.error("Firebase token missing uid field");
+      throw new AppError("User ID not available from Firebase token", 401);
+    }
+
     // Get or create user in our database
+    logger.info("Finding or creating user in database");
     const user = await authService.findOrCreateUser({
       uid: decodedToken.uid,
       email: decodedToken.email,
       displayName: decodedToken.name,
     });
 
+    logger.info(`Authentication successful for user: ${user.email} (ID: ${user.id})`);
+
     if (!user.isActive) {
+      logger.warn(`Authentication denied - user account disabled: ${user.email}`);
       throw new AppError("User account is disabled", 403);
     }
 
@@ -70,14 +86,21 @@ export const authenticate = async (
       firebaseUid: user.firebaseUid,
     };
 
+    logger.info(`User attached to request: ${user.email}`);
     next();
   } catch (error: any) {
-    logger.error("Authentication error:", error);
+    logger.error("Authentication error:", {
+      message: error.message,
+      code: error.code,
+      statusCode: error.statusCode,
+      stack: error.stack
+    });
 
     if (error instanceof AppError) {
       return res.status(error.statusCode).json({
         success: false,
         error: error.message,
+        code: "AUTH_ERROR"
       });
     }
 
@@ -103,10 +126,22 @@ export const authenticate = async (
       return res.status(500).json({
         success: false,
         error: "Authentication service configuration error",
+        code: "CONFIG_ERROR"
       });
     }
 
-    return res.status(401).json({
+    // Database specific errors
+    if (error.code && error.code.startsWith('P20')) {
+      logger.error("Database error during authentication:", error);
+      return res.status(500).json({
+        success: false,
+        error: "Database error during authentication",
+        code: "DATABASE_ERROR",
+      });
+    }
+
+    // Generic error response
+    return res.status(500).json({
       success: false,
       error: "Authentication failed",
       code: "AUTH_FAILED",
