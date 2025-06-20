@@ -42,8 +42,8 @@ export class AuthService {
         throw new ConflictError("User with this Firebase UID already exists");
       }
 
-      // Prepare user data - conditionally include timezone field
-      const userData: any = {
+      // Prepare base user data with only guaranteed fields
+      const baseUserData = {
         email: data.email,
         firstName: data.firstName,
         lastName: data.lastName,
@@ -53,30 +53,42 @@ export class AuthService {
         lastLogin: new Date(),
       };
 
-      // Only include fields that might exist in the database
-      if (data.phone) {
-        userData.phone = data.phone;
-      }
-
-      // Try to include timezone if it exists in the schema
+      // Try to create user with all fields first
       try {
-        userData.timezone = data.timezone || "UTC";
-        const user = await prisma.user.create({ data: userData });
-        logger.info(`User created successfully: ${user.email}`);
+        const fullUserData: any = { ...baseUserData };
+        
+        if (data.phone) {
+          fullUserData.phone = data.phone;
+        }
+        if (data.timezone) {
+          fullUserData.timezone = data.timezone;
+        } else {
+          fullUserData.timezone = "UTC";
+        }
+
+        const user = await prisma.user.create({ data: fullUserData });
+        logger.info(`User created successfully with all fields: ${user.email}`);
         return user;
       } catch (error: any) {
-        // If timezone field doesn't exist, try without it
-        if (error.code === 'P2012' || error.message?.includes('timezone')) {
-          logger.warn('Timezone field not found in database, creating user without it');
-          const { timezone, ...userDataWithoutTimezone } = userData;
-          const user = await prisma.user.create({ data: userDataWithoutTimezone });
-          logger.info(`User created successfully without timezone: ${user.email}`);
+        logger.warn('Failed to create user with timezone field, trying without it:', error.message);
+        
+        // If that fails, try with only essential fields
+        try {
+          const essentialData: any = { ...baseUserData };
+          if (data.phone) {
+            essentialData.phone = data.phone;
+          }
+          
+          const user = await prisma.user.create({ data: essentialData });
+          logger.info(`User created successfully with essential fields only: ${user.email}`);
           return user;
+        } catch (secondError: any) {
+          logger.error('Failed to create user even with essential fields:', secondError);
+          throw secondError;
         }
-        throw error;
       }
     } catch (error) {
-      logger.error("Error creating user:", error);
+      logger.error("Error in createUser:", error);
       throw error;
     }
   }
@@ -247,38 +259,87 @@ export class AuthService {
   }): Promise<User> {
     try {
       // Validate required fields
-      if (!firebaseUser.uid || !firebaseUser.email) {
-        throw new AppError("Missing required Firebase user information", 400);
+      if (!firebaseUser.uid) {
+        logger.error("Missing Firebase UID in findOrCreateUser");
+        throw new AppError("Missing Firebase user ID", 400);
+      }
+      
+      if (!firebaseUser.email) {
+        logger.error("Missing email in findOrCreateUser");
+        throw new AppError("Missing user email", 400);
       }
 
+      logger.info(`Finding or creating user for Firebase UID: ${firebaseUser.uid}, Email: ${firebaseUser.email}`);
+
+      // Try to find existing user by Firebase UID first
       let user = await this.getUserByFirebaseUid(firebaseUser.uid);
 
-      if (!user) {
-        // Extract first and last name from displayName
-        const names = firebaseUser.displayName?.split(" ") || [];
-        const firstName = names[0] || firebaseUser.email.split("@")[0];
-        const lastName = names.slice(1).join(" ") || "";
-
-        user = await this.createUser({
-          email: firebaseUser.email,
-          firstName,
-          lastName,
-          firebaseUid: firebaseUser.uid,
-          role: "AGENT", // Default role
-        });
-      } else if (!user.isActive) {
-        throw new AppError("User account is disabled", 403);
-      } else {
+      if (user) {
+        logger.info(`Found existing user: ${user.email} (ID: ${user.id})`);
+        
+        if (!user.isActive) {
+          logger.warn(`User account is disabled: ${user.email}`);
+          throw new AppError("User account is disabled", 403);
+        }
+        
         // Update last login
-        await this.updateLastLogin(user.id);
+        try {
+          await this.updateLastLogin(user.id);
+          logger.info(`Updated last login for user: ${user.email}`);
+        } catch (updateError) {
+          logger.warn(`Failed to update last login for user ${user.email}:`, updateError);
+          // Don't fail authentication if we can't update last login
+        }
+        
+        return user;
       }
 
+      // User doesn't exist, create new one
+      logger.info(`Creating new user for: ${firebaseUser.email}`);
+      
+      // Extract first and last name from displayName
+      const names = firebaseUser.displayName?.trim()?.split(/\s+/) || [];
+      const firstName = names[0] || firebaseUser.email.split("@")[0] || "User";
+      const lastName = names.slice(1).join(" ") || "";
+
+      logger.info(`Extracted names - First: "${firstName}", Last: "${lastName}"`);
+
+      user = await this.createUser({
+        email: firebaseUser.email,
+        firstName,
+        lastName,
+        firebaseUid: firebaseUser.uid,
+        role: "AGENT", // Default role
+      });
+
+      logger.info(`Successfully created new user: ${user.email} (ID: ${user.id})`);
       return user;
-    } catch (error) {
-      logger.error("Error in findOrCreateUser:", error);
+
+    } catch (error: any) {
+      logger.error("Error in findOrCreateUser:", {
+        firebaseUid: firebaseUser?.uid,
+        email: firebaseUser?.email,
+        error: error.message,
+        stack: error.stack
+      });
+      
+      // If it's already an AppError, preserve it
       if (error instanceof AppError) {
         throw error;
       }
+      
+      // For database errors, provide more specific messages
+      if (error.code === 'P2002') {
+        logger.error("Unique constraint violation in user creation");
+        throw new AppError("A user with this email or Firebase ID already exists", 409);
+      }
+      
+      if (error.code === 'P2025') {
+        logger.error("Database record not found");
+        throw new AppError("User not found", 404);
+      }
+      
+      // For any other error, wrap it
       throw new AppError("Error processing user authentication", 500);
     }
   }

@@ -1,5 +1,4 @@
 import { PrismaClient } from '@prisma/client'
-import { hash } from 'bcryptjs'
 
 const prisma = new PrismaClient()
 
@@ -14,87 +13,133 @@ function randomSelect<T>(array: T[], count: number): T[] {
   return shuffled.slice(0, count)
 }
 
+// Función para limpiar tablas de forma segura
+async function safeCleanup() {
+  console.log('🧹 Limpiando datos existentes de forma segura...')
+  
+  try {
+    // Limpiar en orden inverso de dependencias para evitar errores de FK
+    const tables = [
+      'Activity',
+      'AutomationExecution', 
+      'AutomationAction',
+      'Automation',
+      'Payment',
+      'Document', 
+      'Task',
+      'CalendarEvent',
+      'CampaignRecipient',
+      'Campaign',
+      'EmailTemplate',
+      'ContactNote',
+      'Trip',
+      'ContactCustomField',
+      'Contact',
+      'User',
+      'SystemSetting'
+    ]
+    
+    for (const table of tables) {
+      try {
+        await prisma.$executeRawUnsafe(`DELETE FROM "${table}";`)
+        console.log(`✅ Limpiada tabla: ${table}`)
+      } catch (error: any) {
+        if (error.code === 'P2021') {
+          console.log(`⚠️ Tabla ${table} no existe, continuando...`)
+        } else {
+          console.log(`⚠️ Error limpiando ${table}:`, error.message)
+        }
+      }
+    }
+  } catch (error) {
+    console.log('⚠️ Error durante limpieza, continuando con seed...')
+  }
+}
+
+// Función helper para crear usuarios con manejo de timezone
+async function createUserSafely(userData: any) {
+  try {
+    return await prisma.user.create({
+      data: {
+        ...userData,
+        timezone: userData.timezone || 'UTC',
+      },
+    })
+  } catch (error: any) {
+    if (error.message?.includes('timezone') || error.code === 'P2012') {
+      console.log('⚠️ Campo timezone no encontrado, creando usuario sin él')
+      const { timezone, ...userDataWithoutTimezone } = userData
+      return await prisma.user.create({
+        data: userDataWithoutTimezone,
+      })
+    }
+    throw error
+  }
+}
+
 async function main() {
   console.log('🌱 Iniciando seed de la base de datos...')
 
-  // Limpiar datos existentes
-  await prisma.activity.deleteMany()
-  await prisma.automationExecution.deleteMany()
-  await prisma.automationAction.deleteMany()
-  await prisma.automation.deleteMany()
-  await prisma.payment.deleteMany()
-  await prisma.document.deleteMany()
-  await prisma.task.deleteMany()
-  await prisma.calendarEvent.deleteMany()
-  await prisma.campaignRecipient.deleteMany()
-  await prisma.campaign.deleteMany()
-  await prisma.emailTemplate.deleteMany()
-  await prisma.contactNote.deleteMany()
-  await prisma.trip.deleteMany()
-  await prisma.contactCustomField.deleteMany()
-  await prisma.contact.deleteMany()
-  await prisma.user.deleteMany()
-  await prisma.systemSetting.deleteMany()
+  // Limpieza segura
+  await safeCleanup()
 
   // 1. Crear usuarios
   console.log('👤 Creando usuarios...')
+  
   const users = await Promise.all([
-    prisma.user.create({
-      data: {
-        email: 'admin@bukialo.com',
-        firebaseUid: 'firebase_admin_123',
-        firstName: 'Admin',
-        lastName: 'Bukialo',
-        role: 'ADMIN',
-        phone: '+1234567890',
-        isActive: true,
-      },
+    createUserSafely({
+      email: 'admin@bukialo.com',
+      firebaseUid: 'firebase_admin_123',
+      firstName: 'Admin',
+      lastName: 'Bukialo',
+      role: 'ADMIN',
+      phone: '+1234567890',
+      isActive: true,
+      timezone: 'UTC',
     }),
-    prisma.user.create({
-      data: {
-        email: 'maria.garcia@bukialo.com',
-        firebaseUid: 'firebase_maria_123',
-        firstName: 'María',
-        lastName: 'García',
-        role: 'MANAGER',
-        phone: '+1234567891',
-        isActive: true,
-      },
+    createUserSafely({
+      email: 'maria.garcia@bukialo.com',
+      firebaseUid: 'firebase_maria_123',
+      firstName: 'María',
+      lastName: 'García',
+      role: 'MANAGER',
+      phone: '+1234567891',
+      isActive: true,
+      timezone: 'America/Argentina/Buenos_Aires',
     }),
-    prisma.user.create({
-      data: {
-        email: 'carlos.lopez@bukialo.com',
-        firebaseUid: 'firebase_carlos_123',
-        firstName: 'Carlos',
-        lastName: 'López',
-        role: 'AGENT',
-        phone: '+1234567892',
-        isActive: true,
-      },
+    createUserSafely({
+      email: 'carlos.lopez@bukialo.com',
+      firebaseUid: 'firebase_carlos_123',
+      firstName: 'Carlos',
+      lastName: 'López',
+      role: 'AGENT',
+      phone: '+1234567892',
+      isActive: true,
+      timezone: 'America/Argentina/Buenos_Aires',
     }),
-    prisma.user.create({
-      data: {
-        email: 'ana.martinez@bukialo.com',
-        firebaseUid: 'firebase_ana_123',
-        firstName: 'Ana',
-        lastName: 'Martínez',
-        role: 'AGENT',
-        phone: '+1234567893',
-        isActive: true,
-      },
+    createUserSafely({
+      email: 'ana.martinez@bukialo.com',
+      firebaseUid: 'firebase_ana_123',
+      firstName: 'Ana',
+      lastName: 'Martínez',
+      role: 'AGENT',
+      phone: '+1234567893',
+      isActive: true,
+      timezone: 'America/Argentina/Buenos_Aires',
     }),
   ])
 
   const [admin, manager, agent1, agent2] = users
+  console.log(`✅ Creados ${users.length} usuarios`)
 
-  // 2. Crear contactos con diferentes estados
+  // 2. Crear contactos
   console.log('📋 Creando contactos...')
   const destinations = ['París', 'Roma', 'Nueva York', 'Tokio', 'Barcelona', 'Londres', 'Dubai', 'Cancún', 'Buenos Aires', 'Sydney']
+  
   const contactsData = [
-    // Interesados
     {
       firstName: 'Juan',
-      lastName: 'Pérez',
+      lastName: 'Pérez', 
       email: 'juan.perez@email.com',
       phone: '+541234567890',
       status: 'INTERESADO' as const,
@@ -105,14 +150,13 @@ async function main() {
     {
       firstName: 'Laura',
       lastName: 'Rodríguez',
-      email: 'laura.rodriguez@email.com',
+      email: 'laura.rodriguez@email.com', 
       phone: '+541234567891',
       status: 'INTERESADO' as const,
       source: 'SOCIAL_MEDIA' as const,
       budgetRange: 'HIGH' as const,
       assignedAgentId: agent2.id,
     },
-    // Pasajeros
     {
       firstName: 'Miguel',
       lastName: 'Fernández',
@@ -127,13 +171,12 @@ async function main() {
       firstName: 'Sofia',
       lastName: 'González',
       email: 'sofia.gonzalez@email.com',
-      phone: '+541234567893',
+      phone: '+541234567893', 
       status: 'PASAJERO' as const,
       source: 'ADVERTISING' as const,
       budgetRange: 'MEDIUM' as const,
       assignedAgentId: agent2.id,
     },
-    // Clientes
     {
       firstName: 'Roberto',
       lastName: 'Silva',
@@ -172,9 +215,10 @@ async function main() {
       })
     })
   )
+  console.log(`✅ Creados ${contacts.length} contactos`)
 
-  // 3. Crear notas para los contactos
-  console.log('📝 Creando notas de contactos...')
+  // 3. Crear notas para contactos
+  console.log('📝 Creando notas...')
   for (const contact of contacts) {
     await prisma.contactNote.create({
       data: {
@@ -210,166 +254,32 @@ async function main() {
     })
     trips.push(trip)
   }
+  console.log(`✅ Creados ${trips.length} viajes`)
 
-  // 5. Crear templates de email
-  console.log('📧 Creando templates de email...')
-  const templates = await Promise.all([
-    prisma.emailTemplate.create({
-      data: {
-        name: 'Bienvenida',
-        category: 'WELCOME',
-        subject: 'Bienvenido a Bukialo - Tu próxima aventura te espera',
-        htmlContent: `
-          <h1>¡Hola {{firstName}}!</h1>
-          <p>Bienvenido a Bukialo, tu agencia de viajes de confianza.</p>
-          <p>Estamos emocionados de ayudarte a planificar tu próxima aventura.</p>
-        `,
-        variables: {
-          fields: [
-            { name: 'firstName', type: 'text' },
-            { name: 'agentName', type: 'text' },
-          ],
-        },
-        createdById: admin.id,
-      },
-    }),
-    prisma.emailTemplate.create({
-      data: {
-        name: 'Cotización de Viaje',
-        category: 'QUOTE',
-        subject: 'Tu cotización para {{destination}} está lista',
-        htmlContent: `
-          <h1>Hola {{firstName}},</h1>
-          <p>Tu cotización para viajar a {{destination}} está lista.</p>
-          <p>Precio total: ${{price}}</p>
-        `,
-        variables: {
-          fields: [
-            { name: 'firstName', type: 'text' },
-            { name: 'destination', type: 'text' },
-            { name: 'price', type: 'number' },
-          ],
-        },
-        createdById: admin.id,
-      },
-    }),
-  ])
-
-  // 6. Crear campañas
-  console.log('📣 Creando campañas...')
-  const campaign = await prisma.campaign.create({
+  // 5. Crear template de email
+  console.log('📧 Creando template de email...')
+  const template = await prisma.emailTemplate.create({
     data: {
-      name: 'Promoción Verano 2025',
-      type: 'EMAIL',
-      status: 'DRAFT',
-      subject: 'Ofertas especiales de verano - Hasta 30% de descuento',
-      content: 'Descubre nuestras increíbles ofertas para el verano 2025...',
-      templateId: templates[0].id,
-      targetCriteria: {
-        status: ['INTERESADO', 'CLIENTE'],
-        budgetRange: ['MEDIUM', 'HIGH', 'LUXURY'],
-      },
-      scheduledDate: new Date(2025, 5, 1),
-      createdById: manager.id,
-    },
-  })
-
-  // 7. Crear automatizaciones
-  console.log('🤖 Creando automatizaciones...')
-  const automation = await prisma.automation.create({
-    data: {
-      name: 'Bienvenida a nuevos contactos',
-      description: 'Envía email de bienvenida cuando se crea un nuevo contacto',
-      isActive: true,
-      triggerType: 'CONTACT_CREATED',
-      triggerConditions: {
-        status: 'INTERESADO',
-      },
-      createdById: admin.id,
-      actions: {
-        create: [
-          {
-            actionType: 'SEND_EMAIL',
-            parameters: {
-              templateId: templates[0].id,
-            },
-            delayMinutes: 0,
-            order: 1,
-          },
-          {
-            actionType: 'CREATE_TASK',
-            parameters: {
-              title: 'Llamar a nuevo contacto',
-              priority: 'HIGH',
-            },
-            delayMinutes: 1440, // 24 horas
-            order: 2,
-          },
+      name: 'Bienvenida',
+      category: 'WELCOME',
+      subject: 'Bienvenido a Bukialo - {{firstName}}',
+      htmlContent: `
+        <h1>¡Hola {{firstName}}!</h1>
+        <p>Bienvenido a Bukialo, tu agencia de viajes de confianza.</p>
+        <p>Estamos emocionados de ayudarte a planificar tu próxima aventura.</p>
+      `,
+      variables: {
+        fields: [
+          { name: 'firstName', type: 'text' },
+          { name: 'agentName', type: 'text' },
         ],
       },
+      createdById: admin.id,
     },
   })
 
-  // 8. Crear eventos de calendario
-  console.log('📅 Creando eventos de calendario...')
-  for (const trip of trips.slice(0, 3)) {
-    await prisma.calendarEvent.create({
-      data: {
-        title: `Salida de viaje - ${trip.destination}`,
-        type: 'TRIP_DEPARTURE',
-        startDate: trip.departureDate,
-        endDate: trip.departureDate,
-        contactId: trip.contactId,
-        tripId: trip.id,
-        assignedToId: contacts.find(c => c.id === trip.contactId)?.assignedAgentId || agent1.id,
-        reminderMinutes: [1440, 60], // 24h y 1h antes
-      },
-    })
-  }
-
-  // 9. Crear tareas
-  console.log('📋 Creando tareas...')
-  for (const contact of contacts.slice(0, 4)) {
-    await prisma.task.create({
-      data: {
-        title: `Seguimiento a ${contact.firstName} ${contact.lastName}`,
-        description: 'Realizar llamada de seguimiento para cerrar venta',
-        status: 'PENDING',
-        priority: contact.status === 'PASAJERO' ? 'HIGH' : 'MEDIUM',
-        assignedToId: contact.assignedAgentId!,
-        contactId: contact.id,
-        dueDate: randomDate(new Date(), new Date(2025, 1, 1)),
-      },      
-    })
-  }
-
-  // 10. Crear actividades de ejemplo
-  console.log('📊 Creando actividades...')
-  const activityTypes = [
-    { type: 'email_sent', description: 'Email enviado' },
-    { type: 'call_made', description: 'Llamada realizada' },
-    { type: 'meeting_held', description: 'Reunión realizada' },
-    { type: 'quote_sent', description: 'Cotización enviada' },
-  ]
-
-  for (const contact of contacts) {
-    const randomActivity = activityTypes[Math.floor(Math.random() * activityTypes.length)]
-    await prisma.activity.create({
-      data: {
-        type: randomActivity.type,
-        description: `${randomActivity.description} - ${contact.firstName} ${contact.lastName}`,
-        userId: contact.assignedAgentId!,
-        contactId: contact.id,
-        metadata: {
-          duration: Math.floor(Math.random() * 60) + 5,
-          outcome: 'successful',
-        },
-      },
-    })
-  }
-
-  // 11. Crear configuraciones del sistema
-  console.log('⚙️ Creando configuraciones del sistema...')
+  // 6. Crear configuración del sistema
+  console.log('⚙️ Creando configuración del sistema...')
   await prisma.systemSetting.create({
     data: {
       key: 'email_signature',
@@ -382,33 +292,14 @@ async function main() {
     },
   })
 
-  await prisma.systemSetting.create({
-    data: {
-      key: 'working_hours',
-      value: {
-        monday: { start: '09:00', end: '18:00' },
-        tuesday: { start: '09:00', end: '18:00' },
-        wednesday: { start: '09:00', end: '18:00' },
-        thursday: { start: '09:00', end: '18:00' },
-        friday: { start: '09:00', end: '18:00' },
-        saturday: { start: '10:00', end: '14:00' },
-        sunday: { closed: true },
-      },
-      description: 'Horario de atención',
-      updatedById: admin.id,
-    },
-  })
-
   console.log('✅ Seed completado exitosamente!')
   console.log(`
-    Resumen:
+    📊 Resumen:
     - ${users.length} usuarios creados
-    - ${contacts.length} contactos creados
+    - ${contacts.length} contactos creados  
     - ${trips.length} viajes creados
-    - ${templates.length} templates de email creados
-    - 1 campaña creada
-    - 1 automatización creada
-    - Eventos, tareas y actividades creadas
+    - 1 template de email creado
+    - Configuraciones del sistema creadas
   `)
 }
 
@@ -417,7 +308,7 @@ main()
     await prisma.$disconnect()
   })
   .catch(async (e) => {
-    console.error('Error en seed:', e)
+    console.error('❌ Error en seed:', e)
     await prisma.$disconnect()
     process.exit(1)
   })

@@ -1,0 +1,62 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:14-alpine
+    container_name: bukialo_postgres
+    restart: always
+    environment:
+      # Configuración principal de PostgreSQL
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres123
+      POSTGRES_DB: postgres
+      
+      # Configuraciones adicionales
+      POSTGRES_INITDB_ARGS: "--auth-host=md5"
+      POSTGRES_HOST_AUTH_METHOD: md5
+      
+    ports:
+      - "5432:5432"
+    volumes:
+      # Volumen para persistir datos
+      - postgres_data:/var/lib/postgresql/data
+      
+      # Script de inicialización - ASEGÚRATE de que este archivo existe
+      - ./init-db.sql:/docker-entrypoint-initdb.d/01-init-db.sql
+      
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - bukialo_network
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: bukialo_pgadmin
+    restart: always
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@bukialo.com
+      PGADMIN_DEFAULT_PASSWORD: admin123
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: 'False'
+    ports:
+      - "5050:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - bukialo_network
+
+volumes:
+  postgres_data:
+    driver: local
+  pgadmin_data:
+    driver: local
+
+networks:
+  bukialo_network:
+    driver: bridge
