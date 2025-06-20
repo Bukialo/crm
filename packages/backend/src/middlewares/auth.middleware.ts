@@ -1,9 +1,10 @@
 import { Request, Response, NextFunction } from "express";
 import admin from "firebase-admin";
 import { config } from "../config";
-import { prisma } from "../lib/prisma";
+import { AuthService } from "../services/auth.service";
 import { AppError } from "../utils/errors";
 import { AuthUser } from "@bukialo/shared";
+import { logger } from "../utils/logger";
 
 // Initialize Firebase Admin
 if (!admin.apps.length) {
@@ -15,6 +16,8 @@ if (!admin.apps.length) {
     }),
   });
 }
+
+const authService = new AuthService();
 
 // Extend Express Request type
 declare global {
@@ -41,38 +44,31 @@ export const authenticate = async (
     // Verify Firebase token
     const decodedToken = await admin.auth().verifyIdToken(token);
 
-    // Get user from database
-    const user = await prisma.user.findUnique({
-      where: { firebaseUid: decodedToken.uid },
-      select: {
-        id: true,
-        email: true,
-        firstName: true,
-        lastName: true,
-        role: true,
-        firebaseUid: true,
-        isActive: true,
-      },
+    // Get or create user in our database
+    const user = await authService.findOrCreateUser({
+      uid: decodedToken.uid,
+      email: decodedToken.email!,
+      displayName: decodedToken.name,
     });
-
-    if (!user) {
-      throw new AppError("User not found", 404);
-    }
 
     if (!user.isActive) {
       throw new AppError("User account is disabled", 403);
     }
 
-    // Update last login
-    await prisma.user.update({
-      where: { id: user.id },
-      data: { lastLogin: new Date() },
-    });
-
     // Attach user to request
-    req.user = user as AuthUser;
+    req.user = {
+      id: user.id,
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      role: user.role,
+      firebaseUid: user.firebaseUid,
+    };
+
     next();
   } catch (error: any) {
+    logger.error("Authentication error:", error);
+
     if (error instanceof AppError) {
       return res.status(error.statusCode).json({
         success: false,
@@ -80,10 +76,12 @@ export const authenticate = async (
       });
     }
 
+    // Firebase specific errors
     if (error.code === "auth/id-token-expired") {
       return res.status(401).json({
         success: false,
         error: "Token expired",
+        code: "TOKEN_EXPIRED",
       });
     }
 
@@ -91,12 +89,22 @@ export const authenticate = async (
       return res.status(401).json({
         success: false,
         error: "Invalid token",
+        code: "INVALID_TOKEN",
+      });
+    }
+
+    if (error.code === "auth/project-not-found") {
+      logger.error("Firebase project configuration error");
+      return res.status(500).json({
+        success: false,
+        error: "Authentication service configuration error",
       });
     }
 
     return res.status(401).json({
       success: false,
       error: "Authentication failed",
+      code: "AUTH_FAILED",
     });
   }
 };
@@ -108,6 +116,7 @@ export const authorize = (...allowedRoles: string[]) => {
       return res.status(401).json({
         success: false,
         error: "Unauthorized",
+        code: "NO_USER",
       });
     }
 
@@ -115,6 +124,9 @@ export const authorize = (...allowedRoles: string[]) => {
       return res.status(403).json({
         success: false,
         error: "Insufficient permissions",
+        code: "INSUFFICIENT_PERMISSIONS",
+        requiredRoles: allowedRoles,
+        userRole: req.user.role,
       });
     }
 
@@ -137,25 +149,87 @@ export const optionalAuth = async (
     const token = authHeader.split(" ")[1];
     const decodedToken = await admin.auth().verifyIdToken(token);
 
-    const user = await prisma.user.findUnique({
-      where: { firebaseUid: decodedToken.uid },
-      select: {
-        id: true,
-        email: true,
-        firstName: true,
-        lastName: true,
-        role: true,
-        firebaseUid: true,
-        isActive: true,
-      },
-    });
+    const user = await authService.getUserByFirebaseUid(decodedToken.uid);
 
     if (user && user.isActive) {
-      req.user = user as AuthUser;
+      req.user = {
+        id: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        role: user.role,
+        firebaseUid: user.firebaseUid,
+      };
     }
   } catch (error) {
+    logger.debug("Optional auth failed, continuing without user:", error);
     // Ignore errors in optional auth
   }
 
   next();
+};
+
+// Middleware to check if user owns resource or has admin/manager role
+export const ownershipOrRole = (resourceField: string = "userId") => {
+  return async (req: Request, res: Response, next: NextFunction) => {
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        error: "Unauthorized",
+      });
+    }
+
+    // Admin and Manager can access any resource
+    if (["ADMIN", "MANAGER"].includes(req.user.role)) {
+      return next();
+    }
+
+    // For other roles, check ownership
+    // This would need to be implemented based on the specific resource
+    // For now, we'll just check if the user ID matches
+    const resourceUserId = req.params.userId || req.body[resourceField];
+
+    if (resourceUserId && resourceUserId !== req.user.id) {
+      return res.status(403).json({
+        success: false,
+        error: "Access denied. You can only access your own resources.",
+      });
+    }
+
+    next();
+  };
+};
+
+// Middleware to validate Firebase token without database lookup (for health checks)
+export const validateFirebaseToken = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      throw new AppError("No token provided", 401);
+    }
+
+    const token = authHeader.split(" ")[1];
+    const decodedToken = await admin.auth().verifyIdToken(token);
+
+    req.user = {
+      id: decodedToken.uid,
+      email: decodedToken.email!,
+      firstName: decodedToken.name?.split(" ")[0] || "",
+      lastName: decodedToken.name?.split(" ").slice(1).join(" ") || "",
+      role: "UNKNOWN",
+      firebaseUid: decodedToken.uid,
+    };
+
+    next();
+  } catch (error: any) {
+    logger.error("Firebase token validation error:", error);
+    return res.status(401).json({
+      success: false,
+      error: "Invalid token",
+    });
+  }
 };

@@ -1,29 +1,7 @@
 import { Request, Response } from "express";
 import { AiService } from "../services/ai.service";
 import { asyncHandler } from "../middlewares/error.middleware";
-import { z } from "zod";
-
-// Schemas de validación
-const querySchema = z.object({
-  query: z.string().min(1, "La consulta no puede estar vacía"),
-  context: z
-    .object({
-      currentPage: z.string().optional(),
-      selectedContactId: z.string().optional(),
-      dateRange: z
-        .object({
-          from: z.coerce.date(),
-          to: z.coerce.date(),
-        })
-        .optional(),
-    })
-    .optional(),
-});
-
-const reportSchema = z.object({
-  type: z.string(),
-  params: z.any(),
-});
+import { ApiResponse } from "@bukialo/shared";
 
 export class AiController {
   private aiService: AiService;
@@ -34,17 +12,35 @@ export class AiController {
 
   // Procesar consulta de IA
   query = asyncHandler(async (req: Request, res: Response) => {
-    const validatedData = querySchema.parse(req.body);
+    try {
+      const { query, context } = req.body;
 
-    const result = await this.aiService.processQuery(
-      validatedData,
-      req.user!.id
-    );
+      if (!query || query.trim().length === 0) {
+        return res.status(400).json({
+          success: false,
+          error: "La consulta no puede estar vacía",
+        });
+      }
 
-    res.json({
-      success: true,
-      data: result,
-    });
+      const result = await this.aiService.processQuery(
+        { query, context },
+        req.user!.id
+      );
+
+      const response: ApiResponse = {
+        success: true,
+        data: result,
+      };
+
+      res.json(response);
+    } catch (error: any) {
+      console.error("Error in AI query:", error);
+      res.status(500).json({
+        success: false,
+        error: "Error procesando la consulta de IA",
+        message: error.message,
+      });
+    }
   });
 
   // Obtener historial de chat
@@ -55,34 +51,50 @@ export class AiController {
     // En producción, esto vendría de una tabla de base de datos
     const messages = [];
 
-    res.json({
+    const response: ApiResponse = {
       success: true,
       data: messages,
-    });
+    };
+
+    res.json(response);
   });
 
   // Obtener insights automáticos
   getInsights = asyncHandler(async (req: Request, res: Response) => {
-    const insights = await this.aiService.getInsights();
+    try {
+      const insights = await this.aiService.getInsights();
 
-    res.json({
-      success: true,
-      data: insights,
-    });
+      const response: ApiResponse = {
+        success: true,
+        data: insights,
+      };
+
+      res.json(response);
+    } catch (error: any) {
+      console.error("Error getting insights:", error);
+      res.status(500).json({
+        success: false,
+        error: "Error obteniendo insights",
+        message: error.message,
+      });
+    }
   });
 
   // Generar reporte
   generateReport = asyncHandler(async (req: Request, res: Response) => {
-    const { type, params } = reportSchema.parse(req.body);
+    const { type, params } = req.body;
 
     // Aquí se implementaría la generación de reportes
     // Por ahora devolvemos un placeholder
     const reportUrl = `/reports/${type}_${Date.now()}.pdf`;
 
-    res.json({
+    const response: ApiResponse = {
       success: true,
-      data: reportUrl,
-    });
+      data: { reportUrl, type, params },
+      message: "Reporte generado exitosamente",
+    };
+
+    res.json(response);
   });
 
   // Obtener sugerencias contextuales
@@ -101,10 +113,12 @@ export class AiController {
       "Sugiere acciones para mejorar las ventas",
     ];
 
-    res.json({
+    const response: ApiResponse = {
       success: true,
       data: suggestions,
-    });
+    };
+
+    res.json(response);
   });
 }
 

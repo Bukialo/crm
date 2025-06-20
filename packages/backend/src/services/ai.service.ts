@@ -2,39 +2,45 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import { config } from "../config";
 import { prisma } from "../lib/prisma";
 import { logger } from "../utils/logger";
-
-// Tipos
-interface AiQueryRequest {
-  query: string;
-  context?: {
-    currentPage?: string;
-    selectedContactId?: string;
-    dateRange?: { from: Date; to: Date };
-  };
-}
-
-interface AiMessage {
-  id: string;
-  role: "user" | "assistant";
-  content: string;
-  timestamp: string;
-  metadata?: {
-    type?: "text" | "chart" | "table" | "suggestion";
-    data?: any;
-  };
-}
+import { AiQueryRequest, AiResponse } from "@bukialo/shared";
 
 export class AiService {
   private genAI: GoogleGenerativeAI;
   private model: any;
 
   constructor() {
-    this.genAI = new GoogleGenerativeAI(config.gemini.apiKey);
-    this.model = this.genAI.getGenerativeModel({ model: config.gemini.model });
+    if (!config.gemini.apiKey) {
+      logger.warn(
+        "Gemini API key not configured. AI features will be limited."
+      );
+      this.genAI = null as any;
+      this.model = null;
+      return;
+    }
+
+    try {
+      this.genAI = new GoogleGenerativeAI(config.gemini.apiKey);
+      this.model = this.genAI.getGenerativeModel({
+        model: config.gemini.model,
+      });
+      logger.info("AI Service initialized successfully");
+    } catch (error) {
+      logger.error("Failed to initialize AI service:", error);
+      this.genAI = null as any;
+      this.model = null;
+    }
   }
 
-  async processQuery(request: AiQueryRequest, userId: string): Promise<any> {
+  async processQuery(
+    request: AiQueryRequest,
+    userId: string
+  ): Promise<AiResponse> {
     try {
+      // Si no hay modelo de IA configurado, devolver respuesta de fallback
+      if (!this.model) {
+        return this.getFallbackResponse(request.query);
+      }
+
       // Obtener contexto del CRM
       const context = await this.getCrmContext(request.context);
 
@@ -65,8 +71,75 @@ export class AiService {
       };
     } catch (error) {
       logger.error("Error processing AI query:", error);
-      throw error;
+      return this.getErrorResponse(request.query, error);
     }
+  }
+
+  private getFallbackResponse(query: string): AiResponse {
+    const fallbackResponses = {
+      contactos:
+        "Tienes contactos registrados en el sistema. Puedes verlos en la sección de Contactos.",
+      viajes:
+        "Los viajes se gestionan desde la sección de Trips. Allí puedes ver el estado de cada reserva.",
+      ventas:
+        "Las métricas de ventas están disponibles en el Dashboard principal.",
+      estadísticas:
+        "Revisa el Dashboard para ver todas las estadísticas del CRM.",
+    };
+
+    const lowerQuery = query.toLowerCase();
+    let content = "Hola! Soy tu asistente de IA para Bukialo CRM. ";
+
+    // Buscar palabras clave en la consulta
+    for (const [key, response] of Object.entries(fallbackResponses)) {
+      if (lowerQuery.includes(key)) {
+        content += response;
+        break;
+      }
+    }
+
+    if (content === "Hola! Soy tu asistente de IA para Bukialo CRM. ") {
+      content +=
+        "¿En qué puedo ayudarte hoy? Puedes preguntarme sobre contactos, viajes, estadísticas o cualquier información del CRM.";
+    }
+
+    return {
+      message: {
+        id: this.generateId(),
+        role: "assistant",
+        content,
+        timestamp: new Date().toISOString(),
+        metadata: { type: "text" },
+      },
+      suggestions: [
+        "¿Cuántos contactos tengo?",
+        "Muéstrame las estadísticas del mes",
+        "¿Cuáles son los destinos más populares?",
+        "¿Cómo van las ventas este mes?",
+      ],
+      actions: [],
+    };
+  }
+
+  private getErrorResponse(query: string, error: any): AiResponse {
+    logger.error("AI query failed:", error);
+
+    return {
+      message: {
+        id: this.generateId(),
+        role: "assistant",
+        content:
+          "Lo siento, no pude procesar tu consulta en este momento. Por favor, inténtalo de nuevo más tarde.",
+        timestamp: new Date().toISOString(),
+        metadata: { type: "text" },
+      },
+      suggestions: [
+        "¿Cuántos contactos tengo?",
+        "Muéstrame el dashboard",
+        "¿Qué viajes tengo programados?",
+      ],
+      actions: [],
+    };
   }
 
   async getCrmContext(contextParams?: any) {
@@ -84,6 +157,7 @@ export class AiService {
         prisma.trip.aggregate({
           where: {
             createdAt: { gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) },
+            status: "COMPLETED",
           },
           _sum: { finalPrice: true },
         }),
@@ -153,7 +227,7 @@ ${query}
 
 INSTRUCCIONES:
 1. Responde de forma clara, concisa y profesional
-2. Si la consulta requiere datos específicos, proporciona números exactos
+2. Si la consulta requiere datos específicos, proporciona números exactos del contexto
 3. Si identificas oportunidades de mejora, sugiere acciones concretas
 4. Si la consulta requiere una visualización, indica el tipo de gráfico más apropiado
 5. Mantén un tono amigable pero profesional
@@ -164,14 +238,14 @@ Debes responder en formato JSON con la siguiente estructura:
   "content": "Tu respuesta en texto",
   "metadata": {
     "type": "text|chart|table|suggestion",
-    "data": {} // Datos adicionales si aplica
+    "data": {}
   },
-  "suggestions": ["Sugerencia 1", "Sugerencia 2"], // Próximas preguntas sugeridas
+  "suggestions": ["Sugerencia 1", "Sugerencia 2"],
   "actions": [
     {
       "type": "navigate|filter|create|export",
       "label": "Texto del botón",
-      "params": {} // Parámetros de la acción
+      "params": {}
     }
   ]
 }

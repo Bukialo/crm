@@ -7,8 +7,7 @@ import automationRoutes from "./automation.routes";
 import dashboardRoutes from "./dashboard.routes";
 import campaignRoutes from "./campaign.routes";
 import tripRoutes from "./trip.routes";
-// import userRoutes from './user.routes' // Para futuro
-// import authRoutes from './auth.routes' // Para futuro
+import authRoutes from "./auth.routes"; // ← Nueva ruta de autenticación
 
 const router = Router();
 
@@ -18,13 +17,15 @@ router.get("/", (req, res) => {
     name: "Bukialo CRM API",
     version: "1.0.0",
     description: "API for travel agency CRM with AI integration",
+    status: "online",
+    timestamp: new Date().toISOString(),
     endpoints: {
+      auth: "/api/auth", // ← Nueva ruta
       dashboard: "/api/dashboard",
       contacts: "/api/contacts",
       trips: "/api/trips",
       campaigns: "/api/campaigns",
       users: "/api/users",
-      auth: "/api/auth",
       ai: "/api/ai",
       emails: "/api/emails",
       calendar: "/api/calendar",
@@ -34,6 +35,7 @@ router.get("/", (req, res) => {
 });
 
 // Mount routes
+router.use("/auth", authRoutes); // ← Nueva ruta de autenticación
 router.use("/dashboard", dashboardRoutes);
 router.use("/contacts", contactRoutes);
 router.use("/trips", tripRoutes);
@@ -42,7 +44,6 @@ router.use("/emails", emailRoutes);
 router.use("/calendar", calendarRoutes);
 router.use("/automations", automationRoutes);
 router.use("/campaigns", campaignRoutes);
-// router.use('/users', userRoutes)
-// router.use('/auth', authRoutes)
+// router.use('/users', userRoutes)      // Para implementar en el futuro
 
 export default router;

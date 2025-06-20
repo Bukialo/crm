@@ -6,15 +6,96 @@ import {
   validateParams,
   validateQuery,
 } from "../middlewares/validation.middleware";
-import {
-  createAutomationSchema,
-  updateAutomationSchema,
-  getAutomationSchema,
-  listAutomationsSchema,
-  executeAutomationSchema,
-} from "../schemas/automation.schema";
+import { z } from "zod";
 
 const router = Router();
+
+// Validation schemas
+const createAutomationSchema = z.object({
+  body: z.object({
+    name: z.string().min(1, "Name is required").max(255),
+    description: z.string().max(1000).optional(),
+    triggerType: z.enum([
+      "CONTACT_CREATED",
+      "TRIP_QUOTE_REQUESTED",
+      "PAYMENT_OVERDUE",
+      "TRIP_COMPLETED",
+      "NO_ACTIVITY_30_DAYS",
+      "SEASONAL_OPPORTUNITY",
+      "BIRTHDAY",
+      "CUSTOM",
+    ]),
+    triggerConditions: z.record(z.any()),
+    actions: z
+      .array(
+        z.object({
+          type: z.enum([
+            "SEND_EMAIL",
+            "CREATE_TASK",
+            "SCHEDULE_CALL",
+            "ADD_TAG",
+            "UPDATE_STATUS",
+            "GENERATE_QUOTE",
+            "ASSIGN_AGENT",
+            "SEND_WHATSAPP",
+          ]),
+          parameters: z.record(z.any()),
+          delayMinutes: z.number().min(0).optional().default(0),
+          order: z.number().int().min(1),
+        })
+      )
+      .min(1, "At least one action is required")
+      .max(10),
+  }),
+});
+
+const updateAutomationSchema = z.object({
+  params: z.object({
+    id: z.string().uuid("Invalid automation ID"),
+  }),
+  body: createAutomationSchema.shape.body.partial(),
+});
+
+const getAutomationSchema = z.object({
+  params: z.object({
+    id: z.string().uuid("Invalid automation ID"),
+  }),
+});
+
+const listAutomationsSchema = z.object({
+  query: z.object({
+    isActive: z.enum(["true", "false"]).optional(),
+    triggerType: z
+      .enum([
+        "CONTACT_CREATED",
+        "TRIP_QUOTE_REQUESTED",
+        "PAYMENT_OVERDUE",
+        "TRIP_COMPLETED",
+        "NO_ACTIVITY_30_DAYS",
+        "SEASONAL_OPPORTUNITY",
+        "BIRTHDAY",
+        "CUSTOM",
+      ])
+      .optional(),
+    page: z.coerce.number().int().positive().optional().default(1),
+    pageSize: z.coerce
+      .number()
+      .int()
+      .positive()
+      .max(100)
+      .optional()
+      .default(20),
+  }),
+});
+
+const executeAutomationSchema = z.object({
+  params: z.object({
+    id: z.string().uuid("Invalid automation ID"),
+  }),
+  body: z.object({
+    triggerData: z.record(z.any()),
+  }),
+});
 
 // Todas las rutas requieren autenticación
 router.use(authenticate);
