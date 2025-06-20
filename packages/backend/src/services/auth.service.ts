@@ -42,23 +42,39 @@ export class AuthService {
         throw new ConflictError("User with this Firebase UID already exists");
       }
 
-      // Create new user
-      const user = await prisma.user.create({
-        data: {
-          email: data.email,
-          firstName: data.firstName,
-          lastName: data.lastName,
-          firebaseUid: data.firebaseUid,
-          role: data.role || "AGENT",
-          phone: data.phone,
-          timezone: data.timezone || "UTC",
-          isActive: true,
-          lastLogin: new Date(),
-        },
-      });
+      // Prepare user data - conditionally include timezone field
+      const userData: any = {
+        email: data.email,
+        firstName: data.firstName,
+        lastName: data.lastName,
+        firebaseUid: data.firebaseUid,
+        role: data.role || "AGENT",
+        isActive: true,
+        lastLogin: new Date(),
+      };
 
-      logger.info(`User created successfully: ${user.email}`);
-      return user;
+      // Only include fields that might exist in the database
+      if (data.phone) {
+        userData.phone = data.phone;
+      }
+
+      // Try to include timezone if it exists in the schema
+      try {
+        userData.timezone = data.timezone || "UTC";
+        const user = await prisma.user.create({ data: userData });
+        logger.info(`User created successfully: ${user.email}`);
+        return user;
+      } catch (error: any) {
+        // If timezone field doesn't exist, try without it
+        if (error.code === 'P2012' || error.message?.includes('timezone')) {
+          logger.warn('Timezone field not found in database, creating user without it');
+          const { timezone, ...userDataWithoutTimezone } = userData;
+          const user = await prisma.user.create({ data: userDataWithoutTimezone });
+          logger.info(`User created successfully without timezone: ${user.email}`);
+          return user;
+        }
+        throw error;
+      }
     } catch (error) {
       logger.error("Error creating user:", error);
       throw error;
@@ -96,16 +112,34 @@ export class AuthService {
   async updateUser(id: string, data: UpdateUserDto): Promise<User> {
     const existingUser = await this.getUserById(id);
 
-    const user = await prisma.user.update({
-      where: { id },
-      data: {
-        ...data,
-        updatedAt: new Date(),
-      },
-    });
+    try {
+      const user = await prisma.user.update({
+        where: { id },
+        data: {
+          ...data,
+          updatedAt: new Date(),
+        },
+      });
 
-    logger.info(`User updated successfully: ${user.email}`);
-    return user;
+      logger.info(`User updated successfully: ${user.email}`);
+      return user;
+    } catch (error: any) {
+      // If timezone field doesn't exist, try without it
+      if ((error.code === 'P2012' || error.message?.includes('timezone')) && data.timezone) {
+        logger.warn('Timezone field not found in database, updating user without it');
+        const { timezone, ...dataWithoutTimezone } = data;
+        const user = await prisma.user.update({
+          where: { id },
+          data: {
+            ...dataWithoutTimezone,
+            updatedAt: new Date(),
+          },
+        });
+        logger.info(`User updated successfully without timezone: ${user.email}`);
+        return user;
+      }
+      throw error;
+    }
   }
 
   async updateLastLogin(id: string): Promise<void> {
