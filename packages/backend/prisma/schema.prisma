@@ -130,6 +130,7 @@ model User {
   role        UserRole  @default(AGENT)
   avatar      String?
   phone       String?
+  timezone    String    @default("UTC")
   isActive    Boolean   @default(true)
   lastLogin   DateTime?
 

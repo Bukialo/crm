@@ -211,28 +211,33 @@ export class AuthService {
     email: string;
     displayName?: string;
   }): Promise<User> {
-    let user = await this.getUserByFirebaseUid(firebaseUser.uid);
+    try {
+      let user = await this.getUserByFirebaseUid(firebaseUser.uid);
 
-    if (!user) {
-      // Extract first and last name from displayName
-      const names = firebaseUser.displayName?.split(" ") || [];
-      const firstName = names[0] || firebaseUser.email.split("@")[0];
-      const lastName = names.slice(1).join(" ") || "";
+      if (!user) {
+        // Extract first and last name from displayName
+        const names = firebaseUser.displayName?.split(" ") || [];
+        const firstName = names[0] || firebaseUser.email.split("@")[0];
+        const lastName = names.slice(1).join(" ") || "";
 
-      user = await this.createUser({
-        email: firebaseUser.email,
-        firstName,
-        lastName,
-        firebaseUid: firebaseUser.uid,
-        role: "AGENT", // Default role
-      });
-    } else if (!user.isActive) {
-      throw new AppError("User account is disabled", 403);
-    } else {
-      // Update last login
-      await this.updateLastLogin(user.id);
+        user = await this.createUser({
+          email: firebaseUser.email,
+          firstName,
+          lastName,
+          firebaseUid: firebaseUser.uid,
+          role: "AGENT", // Default role
+        });
+      } else if (!user.isActive) {
+        throw new AppError("User account is disabled", 403);
+      } else {
+        // Update last login
+        await this.updateLastLogin(user.id);
+      }
+
+      return user;
+    } catch (error) {
+      logger.error("Error in findOrCreateUser:", error);
+      throw new AppError("Error processing user authentication", 500);
     }
-
-    return user;
   }
 }
