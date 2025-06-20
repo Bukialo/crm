@@ -16,6 +16,7 @@ import calendarRoutes from "./routes/calendar.routes";
 import automationRoutes from "./routes/automation.routes";
 import campaignRoutes from "./routes/campaign.routes";
 import emailRoutes from "./routes/email.routes";
+import authRoutes from "./routes/auth.routes";
 
 const app: Application = express();
 
@@ -23,17 +24,20 @@ const app: Application = express();
 app.use(
   helmet({
     crossOriginResourcePolicy: { policy: "cross-origin" },
+    contentSecurityPolicy: false, // Deshabilitado para desarrollo
   })
 );
 
-// CORS configuration - PERMITIR TODOS LOS ORÍGENES PARA DESARROLLO
+// CONFIGURACIÓN CORS SIMPLIFICADA Y PERMISIVA PARA DESARROLLO
 app.use(
   cors({
     origin: function (origin, callback) {
-      // Permitir requests sin origin (como archivos locales)
-      if (!origin) return callback(null, true);
+      // PERMITIR TODOS LOS ORÍGENES EN DESARROLLO
+      if (config.isDevelopment) {
+        return callback(null, true);
+      }
 
-      // Lista de orígenes permitidos
+      // En producción, usar lista específica
       const allowedOrigins = [
         "http://localhost:3000",
         "http://localhost:5173",
@@ -41,26 +45,14 @@ app.use(
         "http://127.0.0.1:3000",
         "http://127.0.0.1:5173",
         "http://127.0.0.1:8080",
-        "file://", // Para archivos locales
         ...config.cors.origin,
       ];
 
-      // En desarrollo, permitir cualquier localhost
-      if (
-        config.isDevelopment &&
-        (origin.startsWith("http://localhost") ||
-          origin.startsWith("http://127.0.0.1") ||
-          origin.startsWith("file://"))
-      ) {
-        return callback(null, true);
-      }
-
-      // Verificar si el origin está en la lista permitida
-      if (allowedOrigins.indexOf(origin) !== -1) {
+      if (!origin || allowedOrigins.indexOf(origin) !== -1) {
         callback(null, true);
       } else {
-        console.log(`⚠️ CORS: Origin not allowed: ${origin}`);
-        callback(null, true); // En desarrollo, permitir todo
+        console.log(`❌ CORS: Origin not allowed: ${origin}`);
+        callback(new Error("Not allowed by CORS"));
       }
     },
     credentials: true,
@@ -71,15 +63,17 @@ app.use(
       "X-Requested-With",
       "Accept",
       "Origin",
+      "Cache-Control",
+      "Pragma",
     ],
+    exposedHeaders: ["Content-Length", "X-Foo", "X-Bar"],
     preflightContinue: false,
     optionsSuccessStatus: 200,
   })
 );
 
-// Middleware adicional para manejar preflight requests
-app.use((req, res, next) => {
-  // Agregar headers CORS manualmente para asegurar compatibilidad
+// Middleware adicional para manejar preflight requests manualmente
+app.options("*", (req, res) => {
   res.header("Access-Control-Allow-Origin", req.headers.origin || "*");
   res.header("Access-Control-Allow-Credentials", "true");
   res.header(
@@ -88,24 +82,17 @@ app.use((req, res, next) => {
   );
   res.header(
     "Access-Control-Allow-Headers",
-    "Content-Type, Authorization, X-Requested-With, Accept, Origin"
+    "Content-Type, Authorization, X-Requested-With, Accept, Origin, Cache-Control, Pragma"
   );
-
-  // Manejar preflight requests
-  if (req.method === "OPTIONS") {
-    res.status(200).end();
-    return;
-  }
-
-  next();
+  res.status(200).end();
 });
 
 // Compression
 app.use(compression());
 
-// Body parsing
-app.use(express.json({ limit: "10mb" }));
-app.use(express.urlencoded({ extended: true, limit: "10mb" }));
+// Body parsing con límites aumentados
+app.use(express.json({ limit: "50mb" }));
+app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
 // Rate limiting - Solo para producción
 if (config.isProduction) {
@@ -134,6 +121,17 @@ app.get("/", (req, res) => {
     timestamp: new Date().toISOString(),
     environment: config.env,
     cors: "enabled for development",
+    endpoints: {
+      auth: "/api/auth",
+      dashboard: "/api/dashboard",
+      contacts: "/api/contacts",
+      trips: "/api/trips",
+      campaigns: "/api/campaigns",
+      ai: "/api/ai",
+      emails: "/api/emails",
+      calendar: "/api/calendar",
+      automations: "/api/automations",
+    },
   });
 });
 
@@ -145,6 +143,7 @@ app.get("/health", (req, res) => {
     uptime: process.uptime(),
     environment: config.env,
     cors: "working",
+    memory: process.memoryUsage(),
   });
 });
 
@@ -155,6 +154,7 @@ app.get("/api", (req, res) => {
     version: "1.0.0",
     description: "API for travel agency CRM with AI integration",
     endpoints: {
+      auth: "/api/auth",
       dashboard: "/api/dashboard",
       contacts: "/api/contacts",
       trips: "/api/trips",
@@ -178,7 +178,19 @@ app.get("/api", (req, res) => {
 // Mount API routes with explicit logging
 console.log("🔗 Mounting API routes...");
 
-// Montar rutas AI
+// Montar rutas de autenticación PRIMERO
+app.use(
+  "/api/auth",
+  (req, res, next) => {
+    console.log(
+      `🔐 Auth Route: ${req.method} ${req.originalUrl} - Origin: ${req.headers.origin || "no-origin"}`
+    );
+    next();
+  },
+  authRoutes
+);
+
+// Montar rutas AI (SIN autenticación para endpoints públicos)
 app.use(
   "/api/ai",
   (req, res, next) => {
@@ -269,8 +281,11 @@ app.use((req, res) => {
     error: "Route not found",
     path: req.originalUrl,
     method: req.method,
+    timestamp: new Date().toISOString(),
     availableRoutes: [
       "GET /api",
+      "GET /api/auth",
+      "POST /api/auth/register",
       "GET /api/ai",
       "POST /api/ai/query",
       "GET /api/ai/chat-history",

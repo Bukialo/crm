@@ -10,6 +10,14 @@ import { z } from "zod";
 
 const router = Router();
 
+// MEJORAR: Validación UUID más flexible
+const uuidSchema = z.string().refine((val) => {
+  // Verificar si es un UUID válido O si es un string que podría ser un ID
+  const uuidRegex =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  return uuidRegex.test(val) || (val && val.length > 0);
+}, "Invalid ID format");
+
 // Validation schemas
 const contactBaseSchema = z.object({
   firstName: z.string().min(1, "First name is required").max(100),
@@ -52,7 +60,7 @@ const contactBaseSchema = z.object({
     .optional(),
   referralSource: z.string().optional().nullable(),
   tags: z.array(z.string()).optional().default([]),
-  assignedAgentId: z.string().uuid().optional().nullable(),
+  assignedAgentId: z.string().optional().nullable(),
 });
 
 const createContactSchema = z.object({
@@ -61,14 +69,14 @@ const createContactSchema = z.object({
 
 const updateContactSchema = z.object({
   params: z.object({
-    id: z.string().uuid("Invalid contact ID"),
+    id: uuidSchema, // ← USAR LA VALIDACIÓN MEJORADA
   }),
   body: contactBaseSchema.partial(),
 });
 
 const getContactSchema = z.object({
   params: z.object({
-    id: z.string().uuid("Invalid contact ID"),
+    id: uuidSchema, // ← USAR LA VALIDACIÓN MEJORADA
   }),
 });
 
@@ -89,7 +97,7 @@ const listContactsSchema = z.object({
         z.array(z.enum(["INTERESADO", "PASAJERO", "CLIENTE"])),
       ])
       .optional(),
-    assignedAgentId: z.string().uuid().optional(),
+    assignedAgentId: uuidSchema.optional(),
     tags: z.union([z.string(), z.array(z.string())]).optional(),
     source: z
       .union([
@@ -148,7 +156,7 @@ const bulkImportContactsSchema = z.object({
 
 const addContactNoteSchema = z.object({
   params: z.object({
-    id: z.string().uuid("Invalid contact ID"),
+    id: uuidSchema, // ← USAR LA VALIDACIÓN MEJORADA
   }),
   body: z.object({
     content: z.string().min(1, "Note content is required"),
@@ -158,7 +166,7 @@ const addContactNoteSchema = z.object({
 
 const updateContactStatusSchema = z.object({
   params: z.object({
-    id: z.string().uuid("Invalid contact ID"),
+    id: uuidSchema, // ← USAR LA VALIDACIÓN MEJORADA
   }),
   body: z.object({
     status: z.enum(["INTERESADO", "PASAJERO", "CLIENTE"]),
@@ -178,7 +186,7 @@ const exportContactsSchema = z.object({
         z.array(z.enum(["INTERESADO", "PASAJERO", "CLIENTE"])),
       ])
       .optional(),
-    assignedAgentId: z.string().uuid().optional(),
+    assignedAgentId: uuidSchema.optional(),
     tags: z.union([z.string(), z.array(z.string())]).optional(),
     source: z
       .union([
@@ -247,17 +255,36 @@ router.post(
   contactController.bulkImport
 );
 
-// Get contact by ID
+// MEJORAR: Añadir manejo de errores más específico para IDs
 router.get(
   "/:id",
-  validateParams(getContactSchema.shape.params),
+  (req, res, next) => {
+    // Validación manual más flexible
+    const { id } = req.params;
+    if (!id || id.trim().length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: "Contact ID is required",
+      });
+    }
+    next();
+  },
   contactController.findById
 );
 
 // Update contact
 router.put(
   "/:id",
-  validateParams(updateContactSchema.shape.params),
+  (req, res, next) => {
+    const { id } = req.params;
+    if (!id || id.trim().length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: "Contact ID is required",
+      });
+    }
+    next();
+  },
   validateBody(updateContactSchema.shape.body),
   contactController.update
 );
@@ -265,7 +292,16 @@ router.put(
 // Update contact status
 router.patch(
   "/:id/status",
-  validateParams(updateContactStatusSchema.shape.params),
+  (req, res, next) => {
+    const { id } = req.params;
+    if (!id || id.trim().length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: "Contact ID is required",
+      });
+    }
+    next();
+  },
   validateBody(updateContactStatusSchema.shape.body),
   contactController.updateStatus
 );
@@ -274,14 +310,32 @@ router.patch(
 router.delete(
   "/:id",
   authorize("ADMIN", "MANAGER"),
-  validateParams(getContactSchema.shape.params),
+  (req, res, next) => {
+    const { id } = req.params;
+    if (!id || id.trim().length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: "Contact ID is required",
+      });
+    }
+    next();
+  },
   contactController.delete
 );
 
 // Add note to contact
 router.post(
   "/:id/notes",
-  validateParams(addContactNoteSchema.shape.params),
+  (req, res, next) => {
+    const { id } = req.params;
+    if (!id || id.trim().length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: "Contact ID is required",
+      });
+    }
+    next();
+  },
   validateBody(addContactNoteSchema.shape.body),
   contactController.addNote
 );
