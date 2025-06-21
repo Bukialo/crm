@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useCampaignsStore } from "../store/campaigns.store";
 import {
-  campaignsService, // Corregido: campaignService -> campaignsService
+  campaignsService, // ✅ CORREGIDO: ahora usa campaignsService
   Campaign,
   CreateCampaignDto,
   CampaignFilters,
@@ -26,7 +26,7 @@ export const useCampaigns = () => {
   // Fetch campaigns
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ["campaigns", filters],
-    queryFn: () => campaignsService.getCampaigns(filters), // Corregido
+    queryFn: () => campaignsService.getCampaigns(filters), // ✅ CORREGIDO
     onSuccess: (data) => {
       setCampaigns(data.items, data.total, data.totalPages);
     },
@@ -38,7 +38,7 @@ export const useCampaigns = () => {
   // Create campaign
   const createMutation = useMutation({
     mutationFn: (data: CreateCampaignDto) =>
-      campaignsService.createCampaign(data), // Corregido
+      campaignsService.createCampaign(data), // ✅ CORREGIDO
     onMutate: () => setCreating(true),
     onSuccess: (newCampaign) => {
       queryClient.invalidateQueries(["campaigns"]);
@@ -59,7 +59,7 @@ export const useCampaigns = () => {
     }: {
       id: string;
       data: Partial<CreateCampaignDto>;
-    }) => campaignsService.updateCampaign(id, data), // Corregido
+    }) => campaignsService.updateCampaign(id, data), // ✅ CORREGIDO
     onMutate: () => setUpdating(true),
     onSuccess: (updatedCampaign) => {
       updateCampaign(updatedCampaign.id, updatedCampaign);
@@ -75,7 +75,7 @@ export const useCampaigns = () => {
 
   // Delete campaign
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => campaignsService.deleteCampaign(id), // Corregido
+    mutationFn: (id: string) => campaignsService.deleteCampaign(id), // ✅ CORREGIDO
     onMutate: () => setDeleting(true),
     onSuccess: (_, id) => {
       removeCampaign(id);
@@ -90,7 +90,7 @@ export const useCampaigns = () => {
 
   // Send campaign
   const sendMutation = useMutation({
-    mutationFn: (id: string) => campaignsService.sendCampaign(id), // Corregido
+    mutationFn: (id: string) => campaignsService.sendCampaign(id), // ✅ CORREGIDO
     onMutate: () => setSending(true),
     onSuccess: (result, id) => {
       queryClient.invalidateQueries(["campaigns"]);
@@ -105,7 +105,7 @@ export const useCampaigns = () => {
 
   // Duplicate campaign
   const duplicateMutation = useMutation({
-    mutationFn: (id: string) => campaignsService.duplicateCampaign(id), // Corregido
+    mutationFn: (id: string) => campaignsService.duplicateCampaign(id), // ✅ CORREGIDO
     onSuccess: (newCampaign) => {
       queryClient.invalidateQueries(["campaigns"]);
       toast.success("Campaña duplicada exitosamente");
@@ -125,7 +125,7 @@ export const useCampaigns = () => {
       id: string;
       scheduledDate: Date;
       timezone?: string;
-    }) => campaignsService.scheduleCampaign(id, scheduledDate, timezone), // Corregido
+    }) => campaignsService.scheduleCampaign(id, scheduledDate, timezone), // ✅ CORREGIDO
     onSuccess: (updatedCampaign) => {
       updateCampaign(updatedCampaign.id, updatedCampaign);
       queryClient.invalidateQueries(["campaigns"]);
@@ -147,7 +147,7 @@ export const useCampaigns = () => {
       id: string;
       status: Campaign["status"];
       reason?: string;
-    }) => campaignsService.updateCampaignStatus(id, status, reason), // Corregido
+    }) => campaignsService.updateCampaignStatus(id, status, reason), // ✅ CORREGIDO
     onSuccess: (updatedCampaign) => {
       updateCampaign(updatedCampaign.id, updatedCampaign);
       queryClient.invalidateQueries(["campaigns"]);
@@ -162,7 +162,7 @@ export const useCampaigns = () => {
   // Test send
   const testSendMutation = useMutation({
     mutationFn: ({ id, emails }: { id: string; emails: string[] }) =>
-      campaignsService.testSendCampaign(id, emails), // Corregido
+      campaignsService.testSendCampaign(id, emails), // ✅ CORREGIDO
     onSuccess: (result) => {
       toast.success(
         `Email de prueba enviado a ${result.sentTo.length} destinatarios`
@@ -209,7 +209,7 @@ export const useCampaign = (id: string) => {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["campaign", id],
-    queryFn: () => campaignsService.getCampaign(id), // Corregido
+    queryFn: () => campaignsService.getCampaign(id), // ✅ CORREGIDO
     enabled: !!id,
     onSuccess: (data) => {
       setSelectedCampaign(data);
@@ -230,7 +230,7 @@ export const useCampaign = (id: string) => {
 export const useCampaignStats = (id: string) => {
   return useQuery({
     queryKey: ["campaign-stats", id],
-    queryFn: () => campaignsService.getCampaignStats(id), // Corregido
+    queryFn: () => campaignsService.getCampaignStats(id), // ✅ CORREGIDO
     enabled: !!id,
     refetchInterval: 30000, // Actualizar cada 30 segundos
   });
@@ -240,7 +240,7 @@ export const useCampaignStats = (id: string) => {
 export const useCampaignAnalytics = (id: string) => {
   return useQuery({
     queryKey: ["campaign-analytics", id],
-    queryFn: () => campaignsService.getCampaignAnalytics(id), // Corregido
+    queryFn: () => campaignsService.getCampaignAnalytics(id), // ✅ CORREGIDO
     enabled: !!id,
     refetchInterval: 60000, // Actualizar cada minuto
   });
@@ -258,7 +258,7 @@ export const useCampaignRecipients = (
 ) => {
   return useQuery({
     queryKey: ["campaign-recipients", id, filters],
-    queryFn: () => campaignsService.getCampaignRecipients(id, filters), // Corregido
+    queryFn: () => campaignsService.getCampaignRecipients(id, filters), // ✅ CORREGIDO
     enabled: !!id,
   });
 };
@@ -267,6 +267,6 @@ export const useCampaignRecipients = (
 export const useCampaignPreview = () => {
   return useMutation({
     mutationFn: ({ id, recipients }: { id: string; recipients?: string[] }) =>
-      campaignsService.previewCampaign(id, recipients), // Corregido
+      campaignsService.previewCampaign(id, recipients), // ✅ CORREGIDO
   });
 };

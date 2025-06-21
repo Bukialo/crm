@@ -29,22 +29,37 @@ export const AiChat = () => {
     }
   }, [isOpen]);
 
-  const handleSend = () => {
+  // ✅ FIX PRINCIPAL: Función de envío corregida
+  const handleSend = async (e?: React.FormEvent) => {
+    if (e) {
+      e.preventDefault(); // ¡ESTO PREVIENE EL REFRESH!
+    }
+
     if (input.trim() && !isTyping) {
-      sendMessage(input);
-      setInput("");
+      try {
+        await sendMessage(input);
+        setInput("");
+      } catch (error) {
+        console.error("Error sending message:", error);
+      }
     }
   };
 
+  // ✅ FIX: Manejo de teclas mejorado
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      handleSend();
+      e.preventDefault(); // Prevenir comportamiento por defecto
+      handleSend(); // Llamar función de envío
     }
   };
 
-  const handleSuggestionClick = (suggestion: string) => {
-    sendMessage(suggestion);
+  // ✅ FIX: Función de sugerencias corregida
+  const handleSuggestionClick = async (suggestion: string) => {
+    try {
+      await sendMessage(suggestion);
+    } catch (error) {
+      console.error("Error sending suggestion:", error);
+    }
   };
 
   if (!isOpen) return null;
@@ -164,29 +179,29 @@ export const AiChat = () => {
           </div>
         )}
 
-        {/* Input */}
+        {/* ✅ FIX: Input con formulario corregido */}
         <div className="p-4 border-t border-white/10">
-          <div className="flex gap-2">
+          <form onSubmit={handleSend} className="flex gap-2">
             <input
               ref={inputRef}
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              onKeyPress={handleKeyPress}
+              onKeyDown={handleKeyPress} // Cambiado de onKeyPress a onKeyDown
               placeholder="Escribe tu pregunta..."
               className="flex-1 input-glass"
               disabled={isTyping}
             />
             <Button
+              type="submit" // ✅ Importante: tipo submit
               variant="primary"
               size="sm"
-              onClick={handleSend}
               disabled={!input.trim() || isTyping}
               leftIcon={<Send className="w-4 h-4" />}
             >
               Enviar
             </Button>
-          </div>
+          </form>
         </div>
       </Card>
     </div>

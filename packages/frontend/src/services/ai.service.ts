@@ -1,4 +1,4 @@
-import api from  "../lib/axios";
+import api from "../lib/axios";
 
 export interface AiMessage {
   id: string;
@@ -8,6 +8,7 @@ export interface AiMessage {
   metadata?: {
     type?: "text" | "chart" | "table" | "suggestion";
     data?: any;
+    suggestions?: string[];
   };
 }
 
@@ -25,6 +26,7 @@ export interface AiQueryRequest {
     currentPage?: string;
     selectedContactId?: string;
     dateRange?: { from: Date; to: Date };
+    userLocation?: string;
   };
 }
 
@@ -32,7 +34,7 @@ export interface AiQueryResponse {
   message: AiMessage;
   suggestions?: string[];
   actions?: Array<{
-    type: "navigate" | "filter" | "create" | "export";
+    type: "navigate" | "filter" | "create" | "export" | "update";
     label: string;
     params: any;
   }>;
@@ -49,32 +51,74 @@ export interface AiInsight {
     label: string;
     action: string;
   }>;
+  createdAt: string;
 }
 
 class AiService {
   async sendQuery(request: AiQueryRequest): Promise<AiQueryResponse> {
-    const response = await api.post("/ai/query", request);
-    return response.data.data;
+    try {
+      const response = await api.post("/ai/query", request);
+      return response.data.data;
+    } catch (error: any) {
+      console.error("AI query error:", error);
+
+      // Fallback response en caso de error
+      return {
+        message: {
+          id: Date.now().toString(),
+          role: "assistant",
+          content:
+            "Lo siento, no pude procesar tu consulta en este momento. Por favor, intenta de nuevo o reformula tu pregunta.",
+          timestamp: new Date().toISOString(),
+          metadata: { type: "text" },
+        },
+        suggestions: [
+          "¿Cuántos contactos tengo?",
+          "Muéstrame las ventas del mes",
+          "¿Cuáles son los destinos más populares?",
+        ],
+      };
+    }
   }
 
   async getChatHistory(limit = 50): Promise<AiMessage[]> {
-    const response = await api.get(`/ai/chat-history?limit=${limit}`);
-    return response.data.data;
+    try {
+      const response = await api.get(`/ai/chat-history?limit=${limit}`);
+      return response.data.data;
+    } catch (error) {
+      console.error("Error getting chat history:", error);
+      return [];
+    }
   }
 
   async getInsights(): Promise<AiInsight[]> {
-    const response = await api.get("/ai/insights");
-    return response.data.data;
+    try {
+      const response = await api.get("/ai/insights");
+      return response.data.data;
+    } catch (error) {
+      console.error("Error getting insights:", error);
+      return [];
+    }
   }
 
   async generateReport(type: string, params: any): Promise<string> {
-    const response = await api.post("/ai/generate-report", { type, params });
-    return response.data.data;
+    try {
+      const response = await api.post("/ai/generate-report", { type, params });
+      return response.data.data;
+    } catch (error) {
+      console.error("Error generating report:", error);
+      throw error;
+    }
   }
 
   async getSuggestions(context: any): Promise<string[]> {
-    const response = await api.post("/ai/suggestions", { context });
-    return response.data.data;
+    try {
+      const response = await api.post("/ai/suggestions", { context });
+      return response.data.data;
+    } catch (error) {
+      console.error("Error getting suggestions:", error);
+      return this.getExampleQueries();
+    }
   }
 
   // Ejemplos de consultas predefinidas
@@ -88,7 +132,44 @@ class AiService {
       "Analiza el rendimiento de los agentes",
       "¿Cuáles son las tendencias de reservas?",
       "Sugiere acciones para mejorar las ventas",
+      "¿Cuántos clientes están en cada etapa del pipeline?",
+      "Muéstrame el resumen de actividad de hoy",
     ];
+  }
+
+  // Validar y limpiar query antes de enviar
+  sanitizeQuery(query: string): string {
+    return query
+      .trim()
+      .replace(/[<>]/g, "") // Remover caracteres peligrosos
+      .substring(0, 500); // Limitar longitud
+  }
+
+  // Generar ID único para mensajes
+  generateMessageId(): string {
+    return `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  }
+
+  // Crear mensaje del usuario
+  createUserMessage(content: string): AiMessage {
+    return {
+      id: this.generateMessageId(),
+      role: "user",
+      content: this.sanitizeQuery(content),
+      timestamp: new Date().toISOString(),
+      metadata: { type: "text" },
+    };
+  }
+
+  // Procesar contexto de la aplicación
+  getApplicationContext(): Record<string, any> {
+    return {
+      currentPage: window.location.pathname,
+      userAgent: navigator.userAgent,
+      timestamp: new Date().toISOString(),
+      language: navigator.language || "es",
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    };
   }
 }
 
