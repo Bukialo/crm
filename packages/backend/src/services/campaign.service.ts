@@ -306,7 +306,8 @@ export class CampaignService {
     logger.info(`Campaign deleted: ${id} by user: ${userId}`);
   }
 
-  async sendCampaign(id: string, userId: string) {
+  // CORREGIDO: Eliminar parámetro userId no usado
+  async sendCampaign(id: string, _userId: string) {
     const campaign = await prisma.campaign.findUnique({
       where: { id },
       include: {
@@ -398,9 +399,10 @@ export class CampaignService {
     const duplicateData: CreateCampaignDto = {
       name: `${originalCampaign.name} (Copia)`,
       type: originalCampaign.type,
-      subject: originalCampaign.subject,
+      // CORREGIDO: Manejar campos nullable correctamente
+      subject: originalCampaign.subject || undefined,
       content: originalCampaign.content,
-      templateId: originalCampaign.templateId,
+      templateId: originalCampaign.templateId || undefined,
       targetCriteria: originalCampaign.targetCriteria as any,
       useAiPersonalization: originalCampaign.useAiPersonalization,
       timezone: originalCampaign.timezone,
@@ -495,7 +497,8 @@ export class CampaignService {
     return contacts;
   }
 
-  private async sendEmailBatch(campaign: any, recipients: any[]) {
+  // CORREGIDO: Eliminar parámetro 'campaign' no usado
+  private async sendEmailBatch(_campaign: any, recipients: any[]) {
     // Aquí se implementaría la integración con el servicio de email
     // Por ahora simulamos el envío
 

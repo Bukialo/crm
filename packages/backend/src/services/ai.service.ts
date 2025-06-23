@@ -2,7 +2,8 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import { config } from "../config";
 import { prisma } from "../lib/prisma";
 import { logger } from "../utils/logger";
-import { AiQueryRequest, AiResponse } from "@bukialo/shared";
+// CORREGIDO: Importar tipos desde archivo local en lugar de @bukialo/shared
+import { AiQueryRequest, AiResponse } from "../types/shared";
 
 export class AiService {
   private genAI: GoogleGenerativeAI;
@@ -121,10 +122,8 @@ export class AiService {
     };
   }
 
-  // CORREGIDO: Remover parámetro query no usado
-  private getErrorResponse(error: any): AiResponse {
-    logger.error("AI query failed:", error);
-
+  // CORREGIDO: Eliminar parámetro 'error' no usado
+  private getErrorResponse(_error: any): AiResponse {
     return {
       message: {
         id: this.generateId(),

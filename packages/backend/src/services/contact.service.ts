@@ -1,13 +1,14 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "../lib/prisma";
+// CORREGIDO: Importar tipos desde archivos locales
 import {
   ContactWithRelations,
   ContactFilter,
   CreateContactDto,
   PaginatedResponse,
-  ContactStatus,
-} from "@bukialo/shared";
-// CORREGIDO: Remover AppError y Activity no usados
+} from "../../../shared/src/types/index";
+// CORREGIDO: Importar ContactStatus desde tipos locales
+import { ContactStatus } from "../../../shared/src/types/enums";
 import { NotFoundError, ConflictError } from "../utils/errors";
 import { logger } from "../utils/logger";
 
@@ -33,7 +34,8 @@ export class ContactService {
           data: {
             ...data,
             createdById: userId,
-            status: data.status || ContactStatus.INTERESADO,
+            // CORREGIDO: Usar tipo correcto para status con casting explícito
+            status: (data.status as ContactStatus) || ContactStatus.INTERESADO,
           },
           include: {
             assignedAgent: {
@@ -152,9 +154,10 @@ export class ContactService {
     }
 
     if (filterParams.status) {
+      // CORREGIDO: Casting explícito para tipos de enum
       where.status = Array.isArray(filterParams.status)
-        ? { in: filterParams.status }
-        : filterParams.status;
+        ? { in: filterParams.status as ContactStatus[] }
+        : (filterParams.status as ContactStatus);
     }
 
     if (filterParams.assignedAgentId) {
@@ -166,15 +169,17 @@ export class ContactService {
     }
 
     if (filterParams.source) {
+      // CORREGIDO: Casting explícito para tipos de enum
       where.source = Array.isArray(filterParams.source)
-        ? { in: filterParams.source }
-        : filterParams.source;
+        ? { in: filterParams.source as any[] }
+        : (filterParams.source as any);
     }
 
     if (filterParams.budgetRange) {
+      // CORREGIDO: Casting explícito para tipos de enum
       where.budgetRange = Array.isArray(filterParams.budgetRange)
-        ? { in: filterParams.budgetRange }
-        : filterParams.budgetRange;
+        ? { in: filterParams.budgetRange as any[] }
+        : (filterParams.budgetRange as any);
     }
 
     if (filterParams.dateFrom || filterParams.dateTo) {
@@ -262,9 +267,23 @@ export class ContactService {
 
     // Update contact with activity log
     const contact = await prisma.$transaction(async (tx) => {
+      // CORREGIDO: Manejo correcto de datos parciales con casting explícito
+      const updateData: Prisma.ContactUpdateInput = {
+        ...data,
+        // Asegurar que campos específicos sean del tipo correcto
+        status: data.status ? (data.status as ContactStatus) : undefined,
+      };
+
+      // Remover campos undefined para evitar problemas
+      Object.keys(updateData).forEach((key) => {
+        if (updateData[key as keyof typeof updateData] === undefined) {
+          delete updateData[key as keyof typeof updateData];
+        }
+      });
+
       const updatedContact = await tx.contact.update({
         where: { id },
-        data,
+        data: updateData,
         include: {
           assignedAgent: {
             select: {
