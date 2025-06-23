@@ -101,9 +101,9 @@ export class TripController {
     res.json(response);
   });
 
-  // Get trip statistics
+  // Get trip statistics - CORREGIDO: Remover parámetro userId no usado
   getStats = asyncHandler(async (req: Request, res: Response) => {
-    const stats = await tripService.getStats(req.user!.id);
+    const stats = await tripService.getStats();
 
     const response: ApiResponse = {
       success: true,

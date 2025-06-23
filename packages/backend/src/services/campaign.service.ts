@@ -1,11 +1,11 @@
 import { prisma } from "../lib/prisma";
 import { logger } from "../utils/logger";
 import { AppError, NotFoundError } from "../utils/errors";
-import { Prisma } from "@prisma/client";
+import { Prisma, CampaignType, CampaignStatus } from "@prisma/client";
 
 export interface CreateCampaignDto {
   name: string;
-  type: "EMAIL" | "SMS" | "WHATSAPP";
+  type: CampaignType;
   subject?: string;
   content: string;
   templateId?: string;
@@ -104,11 +104,11 @@ export class CampaignService {
     const where: Prisma.CampaignWhereInput = {};
 
     if (filterParams.status && filterParams.status.length > 0) {
-      where.status = { in: filterParams.status as any };
+      where.status = { in: filterParams.status as CampaignStatus[] };
     }
 
     if (filterParams.type && filterParams.type.length > 0) {
-      where.type = { in: filterParams.type as any };
+      where.type = { in: filterParams.type as CampaignType[] };
     }
 
     if (filterParams.createdById) {

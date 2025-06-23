@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { AiService } from "../services/ai.service";
 import { asyncHandler } from "../middlewares/error.middleware";
-import { ApiResponse } from "@bukialo/shared";
+import { ApiResponse } from "../types/shared";
 
 export class AiController {
   private aiService: AiService;
@@ -49,7 +49,7 @@ export class AiController {
 
     // Por ahora devolvemos un array vacío
     // En producción, esto vendría de una tabla de base de datos
-    const messages = [];
+    const messages: any[] = [];
 
     const response: ApiResponse = {
       success: true,

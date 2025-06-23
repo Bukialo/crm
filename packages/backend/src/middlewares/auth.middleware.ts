@@ -3,7 +3,7 @@ import admin from "firebase-admin";
 import { config } from "../config";
 import { AuthService } from "../services/auth.service";
 import { AppError } from "../utils/errors";
-import { AuthUser } from "@bukialo/shared";
+import { AuthUser } from "../types/shared";
 import { logger } from "../utils/logger";
 
 // Initialize Firebase Admin

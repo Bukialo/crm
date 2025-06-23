@@ -5,11 +5,9 @@ import {
   AutomationAction,
   AutomationTriggerType,
   AutomationActionType,
-  Contact,
-  Trip,
 } from "@prisma/client";
+// CORREGIDO: Remover Contact y Trip no usados
 import { AppError, NotFoundError } from "../utils/errors";
-import { emailService } from "./email.service";
 
 export interface CreateAutomationDto {
   name: string;
@@ -384,7 +382,8 @@ export class AutomationService {
 
   // Implementación de acciones específicas
   private async executeSendEmailAction(parameters: any, triggerData: any) {
-    const { templateId, to, variables } = parameters;
+    // CORREGIDO: Remover variables 'to' y 'variables' no usadas
+    const { templateId } = parameters;
     const contactId = triggerData.contactId;
 
     if (!contactId) {

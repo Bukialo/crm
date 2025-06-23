@@ -1,7 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "../lib/prisma";
 import { logger } from "../utils/logger";
-import { AppError, NotFoundError } from "../utils/errors";
+import { NotFoundError } from "../utils/errors"; // CORREGIDO: Remover AppError no usado
 
 export interface CreateTripDto {
   contactId: string;
@@ -358,7 +358,8 @@ export class TripService {
     logger.info(`Trip deleted: ${id} by user: ${userId}`);
   }
 
-  async getStats(userId: string) {
+  // CORREGIDO: Remover parámetro userId no usado
+  async getStats() {
     const [
       totalTrips,
       activeTrips,

@@ -1,4 +1,4 @@
-import express, { Application } from "express";
+import express, { Application, Request, Response, NextFunction } from "express";
 import cors from "cors";
 import helmet from "helmet";
 import compression from "compression";
@@ -31,7 +31,10 @@ app.use(
 // CONFIGURACIÓN CORS SIMPLIFICADA Y PERMISIVA PARA DESARROLLO
 app.use(
   cors({
-    origin: function (origin, callback) {
+    origin: function (
+      origin: string | undefined,
+      callback: (err: Error | null, origin?: boolean) => void
+    ) {
       // PERMITIR TODOS LOS ORÍGENES EN DESARROLLO
       if (config.isDevelopment) {
         return callback(null, true);
@@ -73,7 +76,7 @@ app.use(
 );
 
 // Middleware adicional para manejar preflight requests manualmente
-app.options("*", (req, res) => {
+app.options("*", (req: Request, res: Response) => {
   res.header("Access-Control-Allow-Origin", req.headers.origin || "*");
   res.header("Access-Control-Allow-Credentials", "true");
   res.header(
@@ -112,7 +115,7 @@ if (config.isProduction) {
 app.use(loggerMiddleware);
 
 // Root endpoint
-app.get("/", (req, res) => {
+app.get("/", (req: Request, res: Response) => {
   res.json({
     name: "Bukialo CRM API",
     version: "1.0.0",
@@ -136,7 +139,7 @@ app.get("/", (req, res) => {
 });
 
 // Health check endpoint
-app.get("/health", (req, res) => {
+app.get("/health", (req: Request, res: Response) => {
   res.json({
     status: "ok",
     timestamp: new Date().toISOString(),
@@ -148,7 +151,7 @@ app.get("/health", (req, res) => {
 });
 
 // API info endpoint
-app.get("/api", (req, res) => {
+app.get("/api", (req: Request, res: Response) => {
   res.json({
     name: "Bukialo CRM API",
     version: "1.0.0",
@@ -178,101 +181,45 @@ app.get("/api", (req, res) => {
 // Mount API routes with explicit logging
 console.log("🔗 Mounting API routes...");
 
-// Montar rutas de autenticación PRIMERO
-app.use(
-  "/api/auth",
-  (req, res, next) => {
+// Middleware de logging con tipado correcto
+const routeLogger =
+  (routeName: string) => (req: Request, res: Response, next: NextFunction) => {
     console.log(
-      `🔐 Auth Route: ${req.method} ${req.originalUrl} - Origin: ${req.headers.origin || "no-origin"}`
+      `${routeName}: ${req.method} ${req.originalUrl} - Origin: ${req.headers.origin || "no-origin"}`
     );
     next();
-  },
-  authRoutes
-);
+  };
+
+// Montar rutas de autenticación PRIMERO
+app.use("/api/auth", routeLogger("🔐 Auth Route"), authRoutes);
 
 // Montar rutas AI (SIN autenticación para endpoints públicos)
-app.use(
-  "/api/ai",
-  (req, res, next) => {
-    console.log(
-      `🤖 AI Route: ${req.method} ${req.originalUrl} - Origin: ${req.headers.origin || "no-origin"}`
-    );
-    next();
-  },
-  aiRoutes
-);
+app.use("/api/ai", routeLogger("🤖 AI Route"), aiRoutes);
 
 // Montar rutas de contactos
-app.use(
-  "/api/contacts",
-  (req, res, next) => {
-    console.log(
-      `👥 Contacts Route: ${req.method} ${req.originalUrl} - Origin: ${req.headers.origin || "no-origin"}`
-    );
-    next();
-  },
-  contactRoutes
-);
+app.use("/api/contacts", routeLogger("👥 Contacts Route"), contactRoutes);
 
 // Montar rutas de dashboard
-app.use(
-  "/api/dashboard",
-  (req, res, next) => {
-    console.log(`📊 Dashboard Route: ${req.method} ${req.originalUrl}`);
-    next();
-  },
-  dashboardRoutes
-);
+app.use("/api/dashboard", routeLogger("📊 Dashboard Route"), dashboardRoutes);
 
-app.use(
-  "/api/trips",
-  (req, res, next) => {
-    console.log(`✈️ Trips Route: ${req.method} ${req.originalUrl}`);
-    next();
-  },
-  tripRoutes
-);
+app.use("/api/trips", routeLogger("✈️ Trips Route"), tripRoutes);
 
-app.use(
-  "/api/emails",
-  (req, res, next) => {
-    console.log(`📧 Email Route: ${req.method} ${req.originalUrl}`);
-    next();
-  },
-  emailRoutes
-);
+app.use("/api/emails", routeLogger("📧 Email Route"), emailRoutes);
 
-app.use(
-  "/api/calendar",
-  (req, res, next) => {
-    console.log(`📅 Calendar Route: ${req.method} ${req.originalUrl}`);
-    next();
-  },
-  calendarRoutes
-);
+app.use("/api/calendar", routeLogger("📅 Calendar Route"), calendarRoutes);
 
 app.use(
   "/api/automations",
-  (req, res, next) => {
-    console.log(`🤖 Automation Route: ${req.method} ${req.originalUrl}`);
-    next();
-  },
+  routeLogger("🤖 Automation Route"),
   automationRoutes
 );
 
-app.use(
-  "/api/campaigns",
-  (req, res, next) => {
-    console.log(`📣 Campaign Route: ${req.method} ${req.originalUrl}`);
-    next();
-  },
-  campaignRoutes
-);
+app.use("/api/campaigns", routeLogger("📣 Campaign Route"), campaignRoutes);
 
 console.log("✅ All routes mounted successfully");
 
 // 404 handler
-app.use((req, res) => {
+app.use((req: Request, res: Response) => {
   console.log(
     `❌ 404 - Route not found: ${req.method} ${req.originalUrl} - Origin: ${req.headers.origin || "no-origin"}`
   );

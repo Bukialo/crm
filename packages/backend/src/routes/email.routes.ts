@@ -1,10 +1,6 @@
 import { Router } from "express";
 import { emailController } from "../controllers/email.controller";
-import {
-  authenticate,
-  authorize,
-  optionalAuth,
-} from "../middlewares/auth.middleware";
+import { authenticate, authorize } from "../middlewares/auth.middleware";
 import {
   validateBody,
   validateParams,
@@ -16,142 +12,114 @@ const router = Router();
 
 // Validation schemas
 const createTemplateSchema = z.object({
-  body: z.object({
-    name: z.string().min(1, "El nombre es requerido"),
-    category: z.enum([
-      "WELCOME",
-      "QUOTE",
-      "FOLLOW_UP",
-      "SEASONAL",
-      "POST_TRIP",
-      "CUSTOM",
-    ]),
-    subject: z.string().min(1, "El asunto es requerido"),
-    htmlContent: z.string().min(1, "El contenido HTML es requerido"),
-    textContent: z.string().optional(),
-    variables: z.array(
-      z.object({
-        name: z.string(),
-        type: z.enum(["text", "number", "date", "boolean"]),
-        required: z.boolean().optional(),
-        defaultValue: z.any().optional(),
-        description: z.string().optional(),
-      })
-    ),
-    aiPersonalization: z
-      .object({
-        enabled: z.boolean(),
-        context: z.string().optional(),
-        tone: z
-          .enum(["PROFESSIONAL", "FRIENDLY", "URGENT", "EXCITING"])
-          .optional(),
-      })
-      .optional(),
-  }),
+  name: z.string().min(1, "El nombre es requerido"),
+  category: z.enum([
+    "WELCOME",
+    "QUOTE",
+    "FOLLOW_UP",
+    "SEASONAL",
+    "POST_TRIP",
+    "CUSTOM",
+  ]),
+  subject: z.string().min(1, "El asunto es requerido"),
+  htmlContent: z.string().min(1, "El contenido HTML es requerido"),
+  textContent: z.string().optional(),
+  variables: z.array(
+    z.object({
+      name: z.string(),
+      type: z.enum(["text", "number", "date", "boolean"]),
+      required: z.boolean().optional(),
+      defaultValue: z.any().optional(),
+      description: z.string().optional(),
+    })
+  ),
+  aiPersonalization: z
+    .object({
+      enabled: z.boolean(),
+      context: z.string().optional(),
+      tone: z
+        .enum(["PROFESSIONAL", "FRIENDLY", "URGENT", "EXCITING"])
+        .optional(),
+    })
+    .optional(),
 });
 
 const sendEmailSchema = z.object({
-  body: z.object({
-    to: z.array(z.string().email()),
-    templateId: z.string().optional(),
-    subject: z.string().min(1, "El asunto es requerido"),
-    htmlContent: z.string().min(1, "El contenido es requerido"),
-    textContent: z.string().optional(),
-    variables: z.record(z.any()).optional(),
-    scheduledAt: z.coerce.date().optional(),
-    trackOpens: z.boolean().optional().default(true),
-    trackClicks: z.boolean().optional().default(true),
-  }),
+  to: z.array(z.string().email()),
+  templateId: z.string().optional(),
+  subject: z.string().min(1, "El asunto es requerido"),
+  htmlContent: z.string().min(1, "El contenido es requerido"),
+  textContent: z.string().optional(),
+  variables: z.record(z.any()).optional(),
+  scheduledAt: z.coerce.date().optional(),
+  trackOpens: z.boolean().optional().default(true),
+  trackClicks: z.boolean().optional().default(true),
 });
 
 const sendCampaignSchema = z.object({
-  body: z.object({
-    name: z.string().min(1, "El nombre de la campaña es requerido"),
-    templateId: z.string(),
-    targetCriteria: z.object({
-      status: z.array(z.enum(["INTERESADO", "PASAJERO", "CLIENTE"])).optional(),
-      tags: z.array(z.string()).optional(),
-      destinations: z.array(z.string()).optional(),
-      budgetRange: z
-        .array(z.enum(["LOW", "MEDIUM", "HIGH", "LUXURY"]))
-        .optional(),
-      lastTripDays: z.number().optional(),
-    }),
-    scheduledDate: z.coerce.date().optional(),
-    useAiPersonalization: z.boolean().optional().default(false),
+  name: z.string().min(1, "El nombre de la campaña es requerido"),
+  templateId: z.string(),
+  targetCriteria: z.object({
+    status: z.array(z.enum(["INTERESADO", "PASAJERO", "CLIENTE"])).optional(),
+    tags: z.array(z.string()).optional(),
+    destinations: z.array(z.string()).optional(),
+    budgetRange: z
+      .array(z.enum(["LOW", "MEDIUM", "HIGH", "LUXURY"]))
+      .optional(),
+    lastTripDays: z.number().optional(),
   }),
+  scheduledDate: z.coerce.date().optional(),
+  useAiPersonalization: z.boolean().optional().default(false),
 });
 
 const getTemplatesQuerySchema = z.object({
-  query: z.object({
-    category: z.string().optional(),
-  }),
+  category: z.string().optional(),
 });
 
 const getTemplateParamsSchema = z.object({
-  params: z.object({
-    id: z.string().uuid("Invalid template ID"),
-  }),
+  id: z.string().uuid("Invalid template ID"),
 });
 
 const previewTemplateSchema = z.object({
-  params: z.object({
-    id: z.string().uuid("Invalid template ID"),
-  }),
-  body: z.object({
-    variables: z.record(z.any()).optional(),
-  }),
+  id: z.string().uuid("Invalid template ID"),
+});
+
+const previewTemplateBodySchema = z.object({
+  variables: z.record(z.any()).optional(),
 });
 
 const getEmailHistoryQuerySchema = z.object({
-  query: z.object({
-    contactId: z.string().uuid().optional(),
-    status: z.string().optional(),
-    dateFrom: z.coerce.date().optional(),
-    dateTo: z.coerce.date().optional(),
-    page: z.coerce.number().int().positive().optional().default(1),
-    pageSize: z.coerce
-      .number()
-      .int()
-      .positive()
-      .max(100)
-      .optional()
-      .default(20),
-  }),
+  contactId: z.string().uuid().optional(),
+  status: z.string().optional(),
+  dateFrom: z.coerce.date().optional(),
+  dateTo: z.coerce.date().optional(),
+  page: z.coerce.number().int().positive().optional().default(1),
+  pageSize: z.coerce.number().int().positive().max(100).optional().default(20),
 });
 
 const getEmailStatsQuerySchema = z.object({
-  query: z.object({
-    period: z
-      .enum(["day", "week", "month", "year"])
-      .optional()
-      .default("month"),
-  }),
+  period: z.enum(["day", "week", "month", "year"]).optional().default("month"),
 });
 
 const trackingParamsSchema = z.object({
-  params: z.object({
-    trackingId: z.string().uuid("Invalid tracking ID"),
-  }),
+  trackingId: z.string().uuid("Invalid tracking ID"),
 });
 
 const trackingQuerySchema = z.object({
-  query: z.object({
-    url: z.string().url().optional(),
-  }),
+  url: z.string().url().optional(),
 });
 
 // Tracking routes (public - no authentication required)
 router.get(
   "/track/open/:trackingId",
-  validateParams(trackingParamsSchema.shape.params),
+  validateParams(trackingParamsSchema),
   emailController.trackEmailOpen
 );
 
 router.get(
   "/track/click/:trackingId",
-  validateParams(trackingParamsSchema.shape.params),
-  validateQuery(trackingQuerySchema.shape.query),
+  validateParams(trackingParamsSchema),
+  validateQuery(trackingQuerySchema),
   emailController.trackEmailClick
 );
 
@@ -161,60 +129,56 @@ router.use(authenticate);
 // Templates
 router.get(
   "/templates",
-  validateQuery(getTemplatesQuerySchema.shape.query),
+  validateQuery(getTemplatesQuerySchema),
   emailController.getTemplates
 );
 
 router.get(
   "/templates/:id",
-  validateParams(getTemplateParamsSchema.shape.params),
+  validateParams(getTemplateParamsSchema),
   emailController.getTemplate
 );
 
 router.post(
   "/templates",
-  validateBody(createTemplateSchema.shape.body),
+  validateBody(createTemplateSchema),
   emailController.createTemplate
 );
 
 router.put(
   "/templates/:id",
-  validateParams(getTemplateParamsSchema.shape.params),
-  validateBody(createTemplateSchema.shape.body.partial()),
+  validateParams(getTemplateParamsSchema),
+  validateBody(createTemplateSchema.partial()),
   emailController.updateTemplate
 );
 
 router.delete(
   "/templates/:id",
   authorize("ADMIN", "MANAGER"),
-  validateParams(getTemplateParamsSchema.shape.params),
+  validateParams(getTemplateParamsSchema),
   emailController.deleteTemplate
 );
 
 router.post(
   "/templates/:id/duplicate",
-  validateParams(getTemplateParamsSchema.shape.params),
+  validateParams(getTemplateParamsSchema),
   emailController.duplicateTemplate
 );
 
 // Preview
 router.post(
   "/templates/:id/preview",
-  validateParams(previewTemplateSchema.shape.params),
-  validateBody(previewTemplateSchema.shape.body),
+  validateParams(previewTemplateSchema),
+  validateBody(previewTemplateBodySchema),
   emailController.previewTemplate
 );
 
 // Envío de emails
-router.post(
-  "/send",
-  validateBody(sendEmailSchema.shape.body),
-  emailController.sendEmail
-);
+router.post("/send", validateBody(sendEmailSchema), emailController.sendEmail);
 
 router.post(
   "/send-test",
-  validateBody(sendEmailSchema.shape.body),
+  validateBody(sendEmailSchema),
   emailController.sendTestEmail
 );
 
@@ -222,7 +186,7 @@ router.post(
 router.post(
   "/campaigns",
   authorize("ADMIN", "MANAGER"),
-  validateBody(sendCampaignSchema.shape.body),
+  validateBody(sendCampaignSchema),
   emailController.sendCampaign
 );
 
@@ -232,10 +196,8 @@ router.get(
   "/campaigns/:id/stats",
   validateParams(
     z.object({
-      params: z.object({
-        id: z.string().uuid("Invalid campaign ID"),
-      }),
-    }).shape.params
+      id: z.string().uuid("Invalid campaign ID"),
+    })
   ),
   emailController.getCampaignStats
 );
@@ -243,14 +205,14 @@ router.get(
 // Historial
 router.get(
   "/history",
-  validateQuery(getEmailHistoryQuerySchema.shape.query),
+  validateQuery(getEmailHistoryQuerySchema),
   emailController.getEmailHistory
 );
 
 // Métricas
 router.get(
   "/stats",
-  validateQuery(getEmailStatsQuerySchema.shape.query),
+  validateQuery(getEmailStatsQuerySchema),
   emailController.getEmailStats
 );
 

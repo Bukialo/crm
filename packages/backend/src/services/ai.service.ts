@@ -71,7 +71,7 @@ export class AiService {
       };
     } catch (error) {
       logger.error("Error processing AI query:", error);
-      return this.getErrorResponse(request.query, error);
+      return this.getErrorResponse(error);
     }
   }
 
@@ -121,7 +121,8 @@ export class AiService {
     };
   }
 
-  private getErrorResponse(query: string, error: any): AiResponse {
+  // CORREGIDO: Remover parámetro query no usado
+  private getErrorResponse(error: any): AiResponse {
     logger.error("AI query failed:", error);
 
     return {
@@ -371,14 +372,17 @@ Debes responder en formato JSON con la siguiente estructura:
       // Insight sobre destinos populares
       if (recentTrends.length > 0) {
         const topDestination = recentTrends[0];
-        insights.push({
-          id: "3",
-          title: "Destino en tendencia",
-          description: `${topDestination.destination} es el destino más popular con ${topDestination._count} reservas recientes`,
-          priority: "low",
-          category: "trend",
-          data: recentTrends,
-        });
+        // CORREGIDO: Verificar que topDestination existe antes de usarlo
+        if (topDestination) {
+          insights.push({
+            id: "3",
+            title: "Destino en tendencia",
+            description: `${topDestination.destination} es el destino más popular con ${topDestination._count} reservas recientes`,
+            priority: "low",
+            category: "trend",
+            data: recentTrends,
+          });
+        }
       }
 
       return insights;

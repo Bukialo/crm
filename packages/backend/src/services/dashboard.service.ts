@@ -94,10 +94,12 @@ export class DashboardService {
       "Nov",
       "Dic",
     ];
-    return months[date.getMonth()];
+    // CORREGIDO: Verificar que el índice sea válido
+    const monthIndex = date.getMonth();
+    return months[monthIndex] || "Unknown";
   }
 
-  async getDashboardData(userId: string) {
+  async getDashboardData() {
     try {
       const [
         stats,
@@ -106,11 +108,11 @@ export class DashboardService {
         agentPerformance,
         recentActivity,
       ] = await Promise.all([
-        this.getStats(userId),
-        this.getSalesChart("month", userId),
-        this.getTopDestinations(5, userId),
-        this.getAgentPerformance(userId),
-        this.getRecentActivity(10, userId),
+        this.getStats(),
+        this.getSalesChart(),
+        this.getTopDestinations(),
+        this.getAgentPerformance(),
+        this.getRecentActivity(),
       ]);
 
       return {
@@ -126,7 +128,8 @@ export class DashboardService {
     }
   }
 
-  async getStats(userId: string): Promise<DashboardStats> {
+  // CORREGIDO: Remover parámetro userId no usado
+  async getStats(): Promise<DashboardStats> {
     try {
       const now = new Date();
       const startThisMonth = this.startOfMonth(now);
@@ -251,7 +254,8 @@ export class DashboardService {
     }
   }
 
-  async getSalesChart(period: string, userId: string): Promise<SalesData[]> {
+  // CORREGIDO: Remover parámetros no usados
+  async getSalesChart(): Promise<SalesData[]> {
     try {
       const now = new Date();
       let months: Date[] = [];
@@ -305,10 +309,7 @@ export class DashboardService {
     }
   }
 
-  async getTopDestinations(
-    limit: number,
-    userId: string
-  ): Promise<TopDestination[]> {
+  async getTopDestinations(limit: number = 5): Promise<TopDestination[]> {
     try {
       const destinations = await prisma.trip.groupBy({
         by: ["destination"],
@@ -338,7 +339,8 @@ export class DashboardService {
     }
   }
 
-  async getAgentPerformance(userId: string): Promise<AgentPerformance[]> {
+  // CORREGIDO: Remover parámetro userId no usado
+  async getAgentPerformance(): Promise<AgentPerformance[]> {
     try {
       const agents = await prisma.user.findMany({
         where: {
@@ -396,10 +398,7 @@ export class DashboardService {
     }
   }
 
-  async getRecentActivity(
-    limit: number,
-    userId: string
-  ): Promise<RecentActivity[]> {
+  async getRecentActivity(limit: number = 10): Promise<RecentActivity[]> {
     try {
       const activities = await prisma.activity.findMany({
         take: limit,
@@ -422,6 +421,7 @@ export class DashboardService {
         },
       });
 
+      // CORREGIDO: Manejo seguro de metadata
       return activities.map((activity) => ({
         id: activity.id,
         type: activity.type as any,
@@ -430,7 +430,9 @@ export class DashboardService {
         user: {
           name: `${activity.user.firstName} ${activity.user.lastName}`,
         },
-        metadata: activity.metadata,
+        metadata: activity.metadata
+          ? (activity.metadata as Record<string, any>)
+          : undefined,
       }));
     } catch (error) {
       logger.error("Error getting recent activity:", error);
@@ -438,11 +440,7 @@ export class DashboardService {
     }
   }
 
-  async getMetricsByDateRange(
-    startDate: Date,
-    endDate: Date,
-    userId: string
-  ): Promise<any> {
+  async getMetricsByDateRange(startDate: Date, endDate: Date): Promise<any> {
     try {
       const [contacts, trips, revenue] = await Promise.all([
         prisma.contact.count({

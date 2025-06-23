@@ -12,9 +12,7 @@ export class DashboardController {
 
   // GET /api/dashboard - Dashboard completo
   getDashboardData = asyncHandler(async (req: Request, res: Response) => {
-    const dashboardData = await this.dashboardService.getDashboardData(
-      req.user!.id
-    );
+    const dashboardData = await this.dashboardService.getDashboardData();
 
     const response: ApiResponse = {
       success: true,
@@ -26,7 +24,7 @@ export class DashboardController {
 
   // GET /api/dashboard/stats - Estadísticas generales
   getStats = asyncHandler(async (req: Request, res: Response) => {
-    const stats = await this.dashboardService.getStats(req.user!.id);
+    const stats = await this.dashboardService.getStats();
 
     const response: ApiResponse = {
       success: true,
@@ -38,11 +36,7 @@ export class DashboardController {
 
   // GET /api/dashboard/sales-chart - Gráfico de ventas
   getSalesChart = asyncHandler(async (req: Request, res: Response) => {
-    const { period = "month" } = req.query;
-    const salesData = await this.dashboardService.getSalesChart(
-      period as string,
-      req.user!.id
-    );
+    const salesData = await this.dashboardService.getSalesChart();
 
     const response: ApiResponse = {
       success: true,
@@ -56,8 +50,7 @@ export class DashboardController {
   getTopDestinations = asyncHandler(async (req: Request, res: Response) => {
     const { limit = "5" } = req.query;
     const destinations = await this.dashboardService.getTopDestinations(
-      parseInt(limit as string),
-      req.user!.id
+      parseInt(limit as string)
     );
 
     const response: ApiResponse = {
@@ -70,9 +63,7 @@ export class DashboardController {
 
   // GET /api/dashboard/agent-performance - Rendimiento de agentes
   getAgentPerformance = asyncHandler(async (req: Request, res: Response) => {
-    const performance = await this.dashboardService.getAgentPerformance(
-      req.user!.id
-    );
+    const performance = await this.dashboardService.getAgentPerformance();
 
     const response: ApiResponse = {
       success: true,
@@ -86,8 +77,7 @@ export class DashboardController {
   getRecentActivity = asyncHandler(async (req: Request, res: Response) => {
     const { limit = "10" } = req.query;
     const activities = await this.dashboardService.getRecentActivity(
-      parseInt(limit as string),
-      req.user!.id
+      parseInt(limit as string)
     );
 
     const response: ApiResponse = {
@@ -111,8 +101,7 @@ export class DashboardController {
 
     const metrics = await this.dashboardService.getMetricsByDateRange(
       new Date(startDate as string),
-      new Date(endDate as string),
-      req.user!.id
+      new Date(endDate as string)
     );
 
     const response: ApiResponse = {

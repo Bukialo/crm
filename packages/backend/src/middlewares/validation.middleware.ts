@@ -1,8 +1,28 @@
 import { Request, Response, NextFunction } from "express";
 import { z, ZodSchema, ZodError } from "zod";
 
+// Extend Request interface to include user
+declare global {
+  namespace Express {
+    interface Request {
+      user?: {
+        id: string;
+        email: string;
+        firstName: string;
+        lastName: string;
+        role: string;
+        firebaseUid: string;
+      };
+    }
+  }
+}
+
 export const validate = (schema: ZodSchema) => {
-  return async (req: Request, res: Response, next: NextFunction) => {
+  return async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
     try {
       await schema.parseAsync({
         body: req.body,
@@ -12,7 +32,7 @@ export const validate = (schema: ZodSchema) => {
       next();
     } catch (error) {
       if (error instanceof ZodError) {
-        return res.status(400).json({
+        res.status(400).json({
           success: false,
           error: "Validation failed",
           details: error.errors.map((err) => ({
@@ -22,6 +42,7 @@ export const validate = (schema: ZodSchema) => {
               err.path.length > 0 ? getNestedValue(req, err.path) : undefined,
           })),
         });
+        return;
       }
       next(error);
     }
@@ -29,13 +50,17 @@ export const validate = (schema: ZodSchema) => {
 };
 
 export const validateBody = (schema: ZodSchema) => {
-  return async (req: Request, res: Response, next: NextFunction) => {
+  return async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
     try {
       req.body = await schema.parseAsync(req.body);
       next();
     } catch (error) {
       if (error instanceof ZodError) {
-        return res.status(400).json({
+        res.status(400).json({
           success: false,
           error: "Request body validation failed",
           details: error.errors.map((err) => ({
@@ -47,6 +72,7 @@ export const validateBody = (schema: ZodSchema) => {
                 : req.body,
           })),
         });
+        return;
       }
       next(error);
     }
@@ -54,13 +80,17 @@ export const validateBody = (schema: ZodSchema) => {
 };
 
 export const validateQuery = (schema: ZodSchema) => {
-  return async (req: Request, res: Response, next: NextFunction) => {
+  return async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
     try {
       req.query = await schema.parseAsync(req.query);
       next();
     } catch (error) {
       if (error instanceof ZodError) {
-        return res.status(400).json({
+        res.status(400).json({
           success: false,
           error: "Query parameters validation failed",
           details: error.errors.map((err) => ({
@@ -72,6 +102,7 @@ export const validateQuery = (schema: ZodSchema) => {
                 : req.query,
           })),
         });
+        return;
       }
       next(error);
     }
@@ -79,7 +110,11 @@ export const validateQuery = (schema: ZodSchema) => {
 };
 
 export const validateParams = (schema: ZodSchema) => {
-  return async (req: Request, res: Response, next: NextFunction) => {
+  return async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
     try {
       req.params = await schema.parseAsync(req.params);
       next();
@@ -93,7 +128,7 @@ export const validateParams = (schema: ZodSchema) => {
           }
         );
 
-        return res.status(400).json({
+        res.status(400).json({
           success: false,
           error: "URL parameters validation failed",
           details: error.errors.map((err) => ({
@@ -110,6 +145,7 @@ export const validateParams = (schema: ZodSchema) => {
             params: req.params,
           },
         });
+        return;
       }
       next(error);
     }
@@ -125,16 +161,17 @@ function getNestedValue(obj: any, path: (string | number)[]): any {
 
 // Flexible ID validation that accepts various formats
 export const validateId = (paramName: string = "id") => {
-  return (req: Request, res: Response, next: NextFunction) => {
+  return (req: Request, res: Response, next: NextFunction): void => {
     const id = req.params[paramName];
 
     // More flexible ID validation
     if (!id || id.trim().length === 0) {
-      return res.status(400).json({
+      res.status(400).json({
         success: false,
         error: `${paramName} parameter is required`,
         received: id,
       });
+      return;
     }
 
     // Check if it's a valid UUID format OR at least a non-empty string
@@ -144,12 +181,13 @@ export const validateId = (paramName: string = "id") => {
     const isValidId = id.length >= 1 && id.length <= 100; // Basic length check
 
     if (!isValidUuid && !isValidId) {
-      return res.status(400).json({
+      res.status(400).json({
         success: false,
         error: `Invalid ${paramName} format`,
         received: id,
         expected: "Valid UUID or non-empty string",
       });
+      return;
     }
 
     next();
@@ -161,7 +199,11 @@ export const validateContactId = validateId("id");
 
 // Middleware for optional authentication that doesn't fail
 export const optionalValidation = (schema: ZodSchema) => {
-  return async (req: Request, res: Response, next: NextFunction) => {
+  return async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
     try {
       // Try to validate, but don't fail if validation errors occur
       const result = await schema.safeParseAsync({
@@ -201,9 +243,9 @@ export const handleValidationError = (
   req: Request,
   res: Response,
   next: NextFunction
-) => {
+): void => {
   if (error instanceof ZodError) {
-    return res.status(400).json({
+    res.status(400).json({
       success: false,
       error: "Validation error",
       details: error.errors.map((err) => ({
@@ -215,6 +257,7 @@ export const handleValidationError = (
       path: req.path,
       method: req.method,
     });
+    return;
   }
 
   next(error);
@@ -289,7 +332,7 @@ export const logValidation = (
   req: Request,
   res: Response,
   next: NextFunction
-) => {
+): void => {
   console.log(`🔍 Validation check: ${req.method} ${req.path}`, {
     params: req.params,
     query: Object.keys(req.query),

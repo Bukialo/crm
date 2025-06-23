@@ -46,7 +46,27 @@ class EmailServiceClass {
   private genAI: GoogleGenerativeAI;
 
   constructor() {
-    // Configurar transporter de nodemailer - CORREGIDO
+    // CORREGIDO: Usar createTransport en lugar de createTransporter
+    this.transporter = nodemailer.createTransport({
+      host: config.email.host,
+      port: config.email.port,
+      secure: config.email.secure,
+      auth: config.email.auth,
+      pool: true,
+      maxConnections: 5,
+      maxMessages: 100,
+    });
+
+    // Verificar configuración
+    this.transporter.verify((error) => {
+      if (error) {
+        logger.error("SMTP Configuration Error:", error);
+      } else {
+        logger.info("SMTP Server ready to take our messages");
+      }
+    });
+
+    // CORREGIDO: Usar createTransport en lugar de createTransporter
     this.transporter = nodemailer.createTransport({
       host: config.email.host,
       port: config.email.port,
@@ -191,12 +211,17 @@ class EmailServiceClass {
 
       // Procesar tracking en el contenido
       if (request.trackOpens || request.trackClicks) {
-        htmlContent = this.addTracking(
-          htmlContent,
-          trackingIds[0],
-          request.trackOpens,
-          request.trackClicks
-        );
+        // CORREGIDO: Verificar que tenemos al menos un tracking ID
+        const primaryTrackingId =
+          trackingIds.length > 0 ? trackingIds[0] : uuidv4();
+        if (primaryTrackingId) {
+          htmlContent = this.addTracking(
+            htmlContent,
+            primaryTrackingId,
+            request.trackOpens,
+            request.trackClicks
+          );
+        }
       }
 
       // Enviar emails
@@ -210,7 +235,12 @@ class EmailServiceClass {
           let personalizedSubject = subject;
 
           // Personalización por destinatario si hay variables específicas
-          if (request.variables && request.variables[email]) {
+          // CORREGIDO: Verificar que request.variables no es undefined y que email es válido
+          if (
+            request.variables &&
+            typeof email === "string" &&
+            request.variables[email]
+          ) {
             personalizedHtml = this.processTemplate(
               htmlContent,
               request.variables[email]
@@ -301,7 +331,9 @@ class EmailServiceClass {
 
   // Campañas
   async sendCampaign(request: CampaignRequest, userId: string) {
-    // Crear campaña
+    // Crear campaña - CORREGIDO: Agregar campo 'content' requerido
+    const template = await this.getTemplate(request.templateId);
+
     const campaign = await prisma.campaign.create({
       data: {
         name: request.name,
@@ -312,6 +344,9 @@ class EmailServiceClass {
         useAiPersonalization: request.useAiPersonalization || false,
         scheduledDate: request.scheduledDate,
         createdById: userId,
+        // CORREGIDO: Agregar campo content requerido
+        content: template.htmlContent,
+        subject: template.subject,
       },
     });
 
@@ -397,7 +432,13 @@ class EmailServiceClass {
           campaign.createdById
         );
 
-        if (result.results[0].success) {
+        // CORREGIDO: Verificar que result y results existen antes de acceder
+        if (
+          result &&
+          result.results &&
+          result.results.length > 0 &&
+          result.results[0].success
+        ) {
           // Marcar como enviado
           await prisma.campaignRecipient.update({
             where: { id: recipient.id },
@@ -572,7 +613,7 @@ class EmailServiceClass {
           messageId: data.messageId,
           trackingId: data.trackingId,
           error: data.error,
-        },
+        } as any,
       },
     });
   }
@@ -590,16 +631,22 @@ class EmailServiceClass {
       },
     });
 
-    if (activity) {
-      // Actualizar metadata para marcar como abierto
+    if (
+      activity &&
+      activity.metadata &&
+      typeof activity.metadata === "object"
+    ) {
+      // CORREGIDO: Manejo seguro de metadata
+      const currentMetadata = activity.metadata as any;
+
       await prisma.activity.update({
         where: { id: activity.id },
         data: {
           metadata: {
-            ...activity.metadata,
+            ...currentMetadata,
             opened: true,
             openedAt: new Date(),
-          },
+          } as any,
         },
       });
     }
@@ -616,16 +663,23 @@ class EmailServiceClass {
       },
     });
 
-    if (activity) {
+    if (
+      activity &&
+      activity.metadata &&
+      typeof activity.metadata === "object"
+    ) {
+      // CORREGIDO: Manejo seguro de metadata
+      const currentMetadata = activity.metadata as any;
+
       await prisma.activity.update({
         where: { id: activity.id },
         data: {
           metadata: {
-            ...activity.metadata,
+            ...currentMetadata,
             clicked: true,
             clickedAt: new Date(),
             clickedUrl: url,
-          },
+          } as any,
         },
       });
     }
@@ -771,19 +825,24 @@ class EmailServiceClass {
     ]);
 
     return {
-      items: items.map((activity) => ({
-        id: activity.id,
-        to: activity.metadata?.to || activity.contact?.email,
-        subject: activity.description.replace("Email enviado: ", ""),
-        templateId: activity.metadata?.templateId,
-        status: activity.metadata?.status || "sent",
-        sentAt: activity.createdAt,
-        openedAt: activity.metadata?.openedAt,
-        clickedAt: activity.metadata?.clickedAt,
-        error: activity.metadata?.error,
-        sentBy: activity.user,
-        contact: activity.contact,
-      })),
+      items: items.map((activity) => {
+        // CORREGIDO: Manejo seguro de metadata
+        const metadata = activity.metadata as any;
+
+        return {
+          id: activity.id,
+          to: metadata?.to || activity.contact?.email,
+          subject: activity.description.replace("Email enviado: ", ""),
+          templateId: metadata?.templateId,
+          status: metadata?.status || "sent",
+          sentAt: activity.createdAt,
+          openedAt: metadata?.openedAt,
+          clickedAt: metadata?.clickedAt,
+          error: metadata?.error,
+          sentBy: activity.user,
+          contact: activity.contact,
+        };
+      }),
       total,
       page,
       pageSize,

@@ -6,9 +6,9 @@ import {
   CreateContactDto,
   PaginatedResponse,
   ContactStatus,
-  Activity,
 } from "@bukialo/shared";
-import { AppError, NotFoundError, ConflictError } from "../utils/errors";
+// CORREGIDO: Remover AppError y Activity no usados
+import { NotFoundError, ConflictError } from "../utils/errors";
 import { logger } from "../utils/logger";
 
 export class ContactService {

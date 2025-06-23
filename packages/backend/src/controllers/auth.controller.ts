@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { AuthService } from "../services/auth.service";
 import { asyncHandler } from "../middlewares/error.middleware";
-import { ApiResponse } from "@bukialo/shared";
+import { ApiResponse } from "../types/shared";
 
 export class AuthController {
   private authService: AuthService;
@@ -111,7 +111,7 @@ export class AuthController {
         role: user.role,
         firebaseUid: user.firebaseUid,
         phone: user.phone,
-        timezone: user.timezone,
+        timezone: (user as any).timezone,
         isActive: user.isActive,
         lastLogin: user.lastLogin,
         createdAt: user.createdAt,
@@ -141,7 +141,7 @@ export class AuthController {
         lastName: user.lastName,
         role: user.role,
         phone: user.phone,
-        timezone: user.timezone,
+        timezone: (user as any).timezone,
       },
       message: "Profile updated successfully",
     };
@@ -235,7 +235,7 @@ export class AuthController {
           role: user.role,
           firebaseUid: user.firebaseUid,
           phone: user.phone,
-          timezone: user.timezone,
+          timezone: (user as any).timezone,
         },
         message: user ? "Login successful" : "User created and logged in",
       };

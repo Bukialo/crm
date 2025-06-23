@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { Router, Request, Response } from "express";
 import { aiController } from "../controllers/ai.controller";
 import { authenticate, optionalAuth } from "../middlewares/auth.middleware";
 import { validateBody } from "../middlewares/validation.middleware";
@@ -28,7 +28,7 @@ const querySchema = z.object({
 // ========================================
 
 // Sugerencias contextuales endpoint público
-router.get("/suggestions", (req, res) => {
+router.get("/suggestions", (req: Request, res: Response): void => {
   const contextualSuggestions = [
     "¿Cuántos contactos nuevos tuvimos este mes?",
     "Muéstrame los destinos más populares",
@@ -57,7 +57,7 @@ router.get("/suggestions", (req, res) => {
 });
 
 // Endpoint para obtener el estado del servicio AI
-router.get("/status", (req, res) => {
+router.get("/status", (req: Request, res: Response): void => {
   res.json({
     success: true,
     data: {
@@ -99,7 +99,7 @@ router.get("/status", (req, res) => {
 });
 
 // Test endpoint público
-router.get("/test", (req, res) => {
+router.get("/test", (req: Request, res: Response): void => {
   res.json({
     success: true,
     message: "AI service is working",
@@ -111,7 +111,7 @@ router.get("/test", (req, res) => {
 });
 
 // Info del servicio AI (público)
-router.get("/", (req, res) => {
+router.get("/", (req: Request, res: Response): void => {
   res.json({
     service: "Bukialo AI Assistant",
     version: "1.0.0",
@@ -133,19 +133,20 @@ router.get("/", (req, res) => {
 });
 
 // Query endpoint PÚBLICO para testing - SIN VALIDACIÓN ESTRICTA
-router.post("/query", (req, res) => {
+router.post("/query", (req: Request, res: Response): void => {
   try {
     const { query, context } = req.body;
 
     if (!query || typeof query !== "string" || query.trim().length === 0) {
-      return res.status(400).json({
+      res.status(400).json({
         success: false,
         error: "Query is required and must be a non-empty string",
       });
+      return;
     }
 
     // Simulamos respuesta de IA sin requerir autenticación
-    const mockResponses = {
+    const mockResponses: Record<string, string> = {
       contactos:
         "Actualmente el sistema gestiona contactos en diferentes estados. Para ver detalles específicos, necesitarías autenticarte.",
       viajes:
@@ -224,7 +225,7 @@ router.post("/query", (req, res) => {
 });
 
 // Chat history público (vacío)
-router.get("/chat-history", (req, res) => {
+router.get("/chat-history", (req: Request, res: Response): void => {
   const limit = parseInt(req.query.limit as string) || 50;
 
   res.json({
@@ -238,7 +239,7 @@ router.get("/chat-history", (req, res) => {
 });
 
 // Insights endpoint público (datos de ejemplo)
-router.get("/insights", (req, res) => {
+router.get("/insights", (req: Request, res: Response): void => {
   // Datos de ejemplo para insights
   const mockInsights = [
     {
