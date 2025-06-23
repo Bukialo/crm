@@ -1,14 +1,18 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "../lib/prisma";
-// CORREGIDO: Importar tipos desde archivos locales
+// Mantener las importaciones como están según tu instrucción
 import {
   ContactWithRelations,
   ContactFilter,
   CreateContactDto,
   PaginatedResponse,
 } from "../../../shared/src/types/index";
-// CORREGIDO: Importar ContactStatus desde tipos locales
-import { ContactStatus } from "../../../shared/src/types/enums";
+import {
+  ContactStatus,
+  BudgetRange,
+  ContactSource,
+  TravelStyle,
+} from "../../../shared/src/types/enums";
 import { NotFoundError, ConflictError } from "../utils/errors";
 import { logger } from "../utils/logger";
 
@@ -29,14 +33,38 @@ export class ContactService {
 
       // Create contact with activity log
       const contact = await prisma.$transaction(async (tx) => {
-        // Create contact
+        // CORREGIDO: Usar la relación correcta 'assignedAgent' en lugar de 'assignedAgentId'
+        const createData: Prisma.ContactCreateInput = {
+          firstName: data.firstName,
+          lastName: data.lastName,
+          email: data.email,
+          phone: data.phone,
+          status: (data.status as ContactStatus) || ContactStatus.INTERESADO,
+          source: data.source ? (data.source as ContactSource) : undefined,
+          budgetRange: data.budgetRange
+            ? (data.budgetRange as BudgetRange)
+            : undefined,
+          travelStyle: data.travelStyle
+            ? (data.travelStyle as TravelStyle[])
+            : undefined,
+          preferredDestinations: data.preferredDestinations,
+          tags: data.tags,
+          // CORREGIDO: Usar la relación 'assignedAgent' en lugar de 'assignedAgentId'
+          assignedAgent: data.assignedAgentId
+            ? { connect: { id: data.assignedAgentId } }
+            : undefined,
+          createdBy: userId ? { connect: { id: userId } } : undefined,
+        };
+
+        // Remover campos undefined
+        Object.keys(createData).forEach((key) => {
+          if (createData[key as keyof typeof createData] === undefined) {
+            delete createData[key as keyof typeof createData];
+          }
+        });
+
         const newContact = await tx.contact.create({
-          data: {
-            ...data,
-            createdById: userId,
-            // CORREGIDO: Usar tipo correcto para status con casting explícito
-            status: (data.status as ContactStatus) || ContactStatus.INTERESADO,
-          },
+          data: createData,
           include: {
             assignedAgent: {
               select: {
@@ -154,7 +182,6 @@ export class ContactService {
     }
 
     if (filterParams.status) {
-      // CORREGIDO: Casting explícito para tipos de enum
       where.status = Array.isArray(filterParams.status)
         ? { in: filterParams.status as ContactStatus[] }
         : (filterParams.status as ContactStatus);
@@ -169,17 +196,15 @@ export class ContactService {
     }
 
     if (filterParams.source) {
-      // CORREGIDO: Casting explícito para tipos de enum
       where.source = Array.isArray(filterParams.source)
-        ? { in: filterParams.source as any[] }
-        : (filterParams.source as any);
+        ? { in: filterParams.source as ContactSource[] }
+        : (filterParams.source as ContactSource);
     }
 
     if (filterParams.budgetRange) {
-      // CORREGIDO: Casting explícito para tipos de enum
       where.budgetRange = Array.isArray(filterParams.budgetRange)
-        ? { in: filterParams.budgetRange as any[] }
-        : (filterParams.budgetRange as any);
+        ? { in: filterParams.budgetRange as BudgetRange[] }
+        : (filterParams.budgetRange as BudgetRange);
     }
 
     if (filterParams.dateFrom || filterParams.dateTo) {
@@ -267,19 +292,30 @@ export class ContactService {
 
     // Update contact with activity log
     const contact = await prisma.$transaction(async (tx) => {
-      // CORREGIDO: Manejo correcto de datos parciales con casting explícito
-      const updateData: Prisma.ContactUpdateInput = {
-        ...data,
-        // Asegurar que campos específicos sean del tipo correcto
-        status: data.status ? (data.status as ContactStatus) : undefined,
-      };
+      const updateData: Prisma.ContactUpdateInput = {};
 
-      // Remover campos undefined para evitar problemas
-      Object.keys(updateData).forEach((key) => {
-        if (updateData[key as keyof typeof updateData] === undefined) {
-          delete updateData[key as keyof typeof updateData];
-        }
-      });
+      // Solo agregar campos que están presentes en data
+      if (data.firstName !== undefined) updateData.firstName = data.firstName;
+      if (data.lastName !== undefined) updateData.lastName = data.lastName;
+      if (data.email !== undefined) updateData.email = data.email;
+      if (data.phone !== undefined) updateData.phone = data.phone;
+      if (data.status !== undefined)
+        updateData.status = data.status as ContactStatus;
+      if (data.source !== undefined)
+        updateData.source = data.source as ContactSource;
+      if (data.budgetRange !== undefined)
+        updateData.budgetRange = data.budgetRange as BudgetRange;
+      if (data.travelStyle !== undefined)
+        updateData.travelStyle = data.travelStyle as TravelStyle[];
+      if (data.preferredDestinations !== undefined)
+        updateData.preferredDestinations = data.preferredDestinations;
+      if (data.tags !== undefined) updateData.tags = data.tags;
+      // CORREGIDO: Usar la relación 'assignedAgent' en lugar de 'assignedAgentId'
+      if (data.assignedAgentId !== undefined) {
+        updateData.assignedAgent = data.assignedAgentId
+          ? { connect: { id: data.assignedAgentId } }
+          : { disconnect: true };
+      }
 
       const updatedContact = await tx.contact.update({
         where: { id },

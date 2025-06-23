@@ -20,7 +20,8 @@ const settingSchema = z.object({
 // GET /api/settings - Obtener todas las configuraciones
 router.get(
   "/",
-  asyncHandler(async (req, res) => {
+  // CORREGIDO: Agregar underscore para parámetro no usado
+  asyncHandler(async (_req, res): Promise<void> => {
     const settings = await prisma.systemSetting.findMany({
       orderBy: { key: "asc" },
     });
@@ -42,7 +43,8 @@ router.get(
 // GET /api/settings/:key - Obtener configuración específica
 router.get(
   "/:key",
-  asyncHandler(async (req, res) => {
+  // CORREGIDO: Arreglar tipos de retorno y parámetros
+  asyncHandler(async (req, res): Promise<void> => {
     const { key } = req.params;
 
     const setting = await prisma.systemSetting.findUnique({
@@ -50,10 +52,11 @@ router.get(
     });
 
     if (!setting) {
-      return res.status(404).json({
+      res.status(404).json({
         success: false,
         error: "Setting not found",
       });
+      return;
     }
 
     res.json({
@@ -78,20 +81,31 @@ router.put(
       description: z.string().optional(),
     })
   ),
-  asyncHandler(async (req, res) => {
+  asyncHandler(async (req, res): Promise<void> => {
     const { key } = req.params;
     const { value, description } = req.body;
+
+    // CORREGIDO: Validar que key existe
+    if (!key) {
+      res.status(400).json({
+        success: false,
+        error: "Key parameter is required",
+      });
+      return;
+    }
 
     const setting = await prisma.systemSetting.upsert({
       where: { key },
       update: {
-        value,
+        // CORREGIDO: Casting explícito para value
+        value: value as any,
         description,
         updatedById: req.user!.id,
       },
       create: {
         key,
-        value,
+        // CORREGIDO: Casting explícito para value
+        value: value as any,
         description,
         updatedById: req.user!.id,
       },
@@ -110,13 +124,15 @@ router.post(
   "/",
   authorize("ADMIN"),
   validateBody(settingSchema),
-  asyncHandler(async (req, res) => {
+  // CORREGIDO: Arreglar tipos de retorno
+  asyncHandler(async (req, res): Promise<void> => {
     const { key, value, description } = req.body;
 
     const setting = await prisma.systemSetting.create({
       data: {
         key,
-        value,
+        // CORREGIDO: Casting explícito para value
+        value: value as any,
         description,
         updatedById: req.user!.id,
       },
@@ -134,7 +150,8 @@ router.post(
 router.delete(
   "/:key",
   authorize("ADMIN"),
-  asyncHandler(async (req, res) => {
+  // CORREGIDO: Agregar underscore para parámetro no usado y arreglar tipos
+  asyncHandler(async (req, res): Promise<void> => {
     const { key } = req.params;
 
     const setting = await prisma.systemSetting.findUnique({
@@ -142,10 +159,11 @@ router.delete(
     });
 
     if (!setting) {
-      return res.status(404).json({
+      res.status(404).json({
         success: false,
         error: "Setting not found",
       });
+      return;
     }
 
     await prisma.systemSetting.delete({
@@ -162,7 +180,8 @@ router.delete(
 // GET /api/settings/categories/all - Obtener configuraciones por categorías
 router.get(
   "/categories/all",
-  asyncHandler(async (req, res) => {
+  // CORREGIDO: Agregar underscore para parámetro no usado
+  asyncHandler(async (_req, res): Promise<void> => {
     const settings = await prisma.systemSetting.findMany({
       orderBy: { key: "asc" },
     });
@@ -204,7 +223,8 @@ router.get(
 // GET /api/settings/defaults - Obtener configuraciones por defecto
 router.get(
   "/defaults/all",
-  asyncHandler(async (req, res) => {
+  // CORREGIDO: Agregar underscore para parámetro no usado
+  asyncHandler(async (_req, res): Promise<void> => {
     const defaultSettings = {
       // Configuraciones generales
       general: {
@@ -354,7 +374,7 @@ router.post(
       settings: z.record(z.any()),
     })
   ),
-  asyncHandler(async (req, res) => {
+  asyncHandler(async (req, res): Promise<void> => {
     const { settings } = req.body;
     const results = [];
 
@@ -363,12 +383,14 @@ router.post(
         const setting = await prisma.systemSetting.upsert({
           where: { key },
           update: {
-            value,
+            // CORREGIDO: Casting explícito para value
+            value: value as any,
             updatedById: req.user!.id,
           },
           create: {
             key,
-            value,
+            // CORREGIDO: Casting explícito para value
+            value: value as any,
             updatedById: req.user!.id,
           },
         });

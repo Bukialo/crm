@@ -433,12 +433,17 @@ class EmailServiceClass {
         );
 
         // CORREGIDO: Verificar que result y results existen antes de acceder
-        if (
+        const isEmailSent =
           result &&
           result.results &&
+          Array.isArray(result.results) &&
           result.results.length > 0 &&
-          result.results[0].success
-        ) {
+          result.results[0] &&
+          typeof result.results[0] === "object" &&
+          "success" in result.results[0] &&
+          result.results[0].success === true;
+
+        if (isEmailSent) {
           // Marcar como enviado
           await prisma.campaignRecipient.update({
             where: { id: recipient.id },

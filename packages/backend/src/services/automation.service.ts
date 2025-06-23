@@ -488,7 +488,7 @@ export class AutomationService {
   // Programar acción con delay
   private async scheduleDelayedAction(
     action: AutomationAction,
-    triggerData: any
+    _triggerData: any
   ) {
     // En una implementación real, esto se manejaría con un job queue como Bull
     // Por ahora, lo logueamos para indicar que se programaría
