@@ -1,10 +1,38 @@
 import { z } from "zod";
-import {
-  ContactStatus,
-  BudgetRange,
-  TravelStyle,
-  ContactSource,
-} from "@bukialo/shared";
+
+// CORREGIDO: Definir enums localmente y exportarlos
+export enum ContactStatus {
+  INTERESADO = "INTERESADO",
+  PASAJERO = "PASAJERO",
+  CLIENTE = "CLIENTE",
+}
+
+export enum BudgetRange {
+  LOW = "LOW",
+  MEDIUM = "MEDIUM",
+  HIGH = "HIGH",
+  LUXURY = "LUXURY",
+}
+
+export enum TravelStyle {
+  ADVENTURE = "ADVENTURE",
+  RELAXATION = "RELAXATION",
+  CULTURAL = "CULTURAL",
+  BUSINESS = "BUSINESS",
+  LUXURY = "LUXURY",
+  FAMILY = "FAMILY",
+  ROMANTIC = "ROMANTIC",
+}
+
+export enum ContactSource {
+  WEBSITE = "WEBSITE",
+  REFERRAL = "REFERRAL",
+  SOCIAL_MEDIA = "SOCIAL_MEDIA",
+  ADVERTISING = "ADVERTISING",
+  DIRECT = "DIRECT",
+  PARTNER = "PARTNER",
+  OTHER = "OTHER",
+}
 
 // Base contact schema
 const contactBaseSchema = z.object({

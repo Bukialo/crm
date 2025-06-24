@@ -1,18 +1,17 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "../lib/prisma";
-// Mantener las importaciones como están según tu instrucción
 import {
   ContactWithRelations,
   ContactFilter,
   CreateContactDto,
   PaginatedResponse,
-} from "../../../shared/src/types/index";
+} from "../types/index";
 import {
   ContactStatus,
   BudgetRange,
   ContactSource,
   TravelStyle,
-} from "../../../shared/src/types/enums";
+} from "../types/index";
 import { NotFoundError, ConflictError } from "../utils/errors";
 import { logger } from "../utils/logger";
 

@@ -33,31 +33,34 @@ declare global {
   }
 }
 
+// CORREGIDO: Agregado return void y manejo completo de todos los code paths
 export const authenticate = async (
   req: Request,
   res: Response,
   next: NextFunction
-) => {
+): Promise<void> => {
   try {
     const authHeader = req.headers.authorization;
 
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return res.status(401).json({
+      res.status(401).json({
         success: false,
         error: "No token provided",
         code: "NO_TOKEN",
         message: "Authorization header with Bearer token is required",
       });
+      return;
     }
 
     const token = authHeader.split(" ")[1];
 
     if (!token || token.trim() === "") {
-      return res.status(401).json({
+      res.status(401).json({
         success: false,
         error: "Empty token provided",
         code: "EMPTY_TOKEN",
       });
+      return;
     }
 
     try {
@@ -66,11 +69,12 @@ export const authenticate = async (
 
       // Ensure we have required fields from Firebase
       if (!decodedToken.email) {
-        return res.status(401).json({
+        res.status(401).json({
           success: false,
           error: "User email not available from Firebase token",
           code: "MISSING_EMAIL",
         });
+        return;
       }
 
       // Get or create user in our database
@@ -81,11 +85,12 @@ export const authenticate = async (
       });
 
       if (!user.isActive) {
-        return res.status(403).json({
+        res.status(403).json({
           success: false,
           error: "User account is disabled",
           code: "ACCOUNT_DISABLED",
         });
+        return;
       }
 
       // Attach user to request
@@ -105,72 +110,79 @@ export const authenticate = async (
 
       // Handle specific Firebase errors
       if (firebaseError.code === "auth/id-token-expired") {
-        return res.status(401).json({
+        res.status(401).json({
           success: false,
           error: "Token expired",
           code: "TOKEN_EXPIRED",
           message: "Please refresh your authentication token",
         });
+        return;
       }
 
       if (firebaseError.code === "auth/invalid-id-token") {
-        return res.status(401).json({
+        res.status(401).json({
           success: false,
           error: "Invalid token",
           code: "INVALID_TOKEN",
           message: "The provided token is not valid",
         });
+        return;
       }
 
       if (firebaseError.code === "auth/project-not-found") {
         logger.error("Firebase project configuration error");
-        return res.status(500).json({
+        res.status(500).json({
           success: false,
           error: "Authentication service configuration error",
           code: "CONFIG_ERROR",
         });
+        return;
       }
 
-      return res.status(401).json({
+      res.status(401).json({
         success: false,
         error: "Authentication failed",
         code: "AUTH_FAILED",
         message: firebaseError.message || "Token verification failed",
       });
+      return;
     }
   } catch (error: any) {
     logger.error("Authentication middleware error:", error);
 
     if (error instanceof AppError) {
-      return res.status(error.statusCode).json({
+      res.status(error.statusCode).json({
         success: false,
         error: error.message,
         code: "APP_ERROR",
       });
+      return;
     }
 
-    return res.status(500).json({
+    res.status(500).json({
       success: false,
       error: "Internal authentication error",
       code: "INTERNAL_ERROR",
       message: "An unexpected error occurred during authentication",
     });
+    return;
   }
 };
 
-// Role-based authorization middleware
+// Role-based authorization middleware - CORREGIDO: Return void y manejo completo
 export const authorize = (...allowedRoles: string[]) => {
-  return (req: Request, res: Response, next: NextFunction) => {
+  return (req: Request, res: Response, next: NextFunction): void => {
     if (!req.user) {
-      return res.status(401).json({
+      res.status(401).json({
         success: false,
         error: "Unauthorized - No user found",
         code: "NO_USER",
       });
+      return;
     }
 
     if (!allowedRoles.includes(req.user.role)) {
-      return res.status(403).json({
+      res.status(403).json({
         success: false,
         error: "Insufficient permissions",
         code: "INSUFFICIENT_PERMISSIONS",
@@ -178,6 +190,7 @@ export const authorize = (...allowedRoles: string[]) => {
         userRole: req.user.role,
         message: `This action requires one of the following roles: ${allowedRoles.join(", ")}`,
       });
+      return;
     }
 
     next();
@@ -185,25 +198,28 @@ export const authorize = (...allowedRoles: string[]) => {
 };
 
 // Optional authentication - doesn't fail if no token (for mixed endpoints)
+// CORREGIDO: Agregado underscore para res no usado
 export const optionalAuth = async (
   req: Request,
-  res: Response,
+  _res: Response,
   next: NextFunction
-) => {
+): Promise<void> => {
   try {
     const authHeader = req.headers.authorization;
 
     // If no authorization header, continue without user
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
       logger.debug("Optional auth: No token provided, continuing without user");
-      return next();
+      next();
+      return;
     }
 
     const token = authHeader.split(" ")[1];
 
     if (!token || token.trim() === "") {
       logger.debug("Optional auth: Empty token, continuing without user");
-      return next();
+      next();
+      return;
     }
 
     try {
@@ -213,7 +229,8 @@ export const optionalAuth = async (
         logger.debug(
           "Optional auth: No email in token, continuing without user"
         );
-        return next();
+        next();
+        return;
       }
 
       const user = await authService.findOrCreateUser({
@@ -253,29 +270,36 @@ export const optionalAuth = async (
 
 // Middleware to check if user owns resource or has admin/manager role
 export const ownershipOrRole = (resourceField: string = "userId") => {
-  return async (req: Request, res: Response, next: NextFunction) => {
+  return async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
     if (!req.user) {
-      return res.status(401).json({
+      res.status(401).json({
         success: false,
         error: "Unauthorized",
         code: "NO_USER",
       });
+      return;
     }
 
     // Admin and Manager can access any resource
     if (["ADMIN", "MANAGER"].includes(req.user.role)) {
-      return next();
+      next();
+      return;
     }
 
     // For other roles, check ownership
     const resourceUserId = req.params.userId || req.body[resourceField];
 
     if (resourceUserId && resourceUserId !== req.user.id) {
-      return res.status(403).json({
+      res.status(403).json({
         success: false,
         error: "Access denied. You can only access your own resources.",
         code: "ACCESS_DENIED",
       });
+      return;
     }
 
     next();
@@ -283,23 +307,45 @@ export const ownershipOrRole = (resourceField: string = "userId") => {
 };
 
 // Middleware to validate Firebase token without database lookup (for health checks)
+// CORREGIDO: Return Promise<void> y verificación de token
 export const validateFirebaseToken = async (
   req: Request,
   res: Response,
   next: NextFunction
-) => {
+): Promise<void> => {
   try {
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      throw new AppError("No token provided", 401);
+      res.status(401).json({
+        success: false,
+        error: "No token provided",
+        code: "NO_TOKEN",
+      });
+      return;
     }
 
     const token = authHeader.split(" ")[1];
+
+    // CORREGIDO: Verificar que token existe antes de usarlo
+    if (!token) {
+      res.status(401).json({
+        success: false,
+        error: "Empty token",
+        code: "EMPTY_TOKEN",
+      });
+      return;
+    }
+
     const decodedToken = await admin.auth().verifyIdToken(token);
 
     // Ensure we have required fields from Firebase
     if (!decodedToken.email) {
-      throw new AppError("User email not available from Firebase token", 401);
+      res.status(401).json({
+        success: false,
+        error: "User email not available from Firebase token",
+        code: "MISSING_EMAIL",
+      });
+      return;
     }
 
     req.user = {
@@ -314,26 +360,29 @@ export const validateFirebaseToken = async (
     next();
   } catch (error: any) {
     logger.error("Firebase token validation error:", error);
-    return res.status(401).json({
+    res.status(401).json({
       success: false,
       error: "Invalid token",
       code: "INVALID_TOKEN",
     });
+    return;
   }
 };
 
 // Helper middleware to ensure Firebase is initialized
+// CORREGIDO: Agregado underscore para req no usado y return void
 export const ensureFirebaseInitialized = (
-  req: Request,
+  _req: Request,
   res: Response,
   next: NextFunction
-) => {
+): void => {
   if (!admin.apps.length) {
-    return res.status(500).json({
+    res.status(500).json({
       success: false,
       error: "Firebase not initialized",
       code: "FIREBASE_NOT_INITIALIZED",
     });
+    return;
   }
   next();
 };
@@ -343,7 +392,7 @@ export const bypassAuthInDevelopment = (
   req: Request,
   res: Response,
   next: NextFunction
-) => {
+): void => {
   if (config.isDevelopment && req.headers["x-bypass-auth"] === "true") {
     // Create a mock user for development
     req.user = {
@@ -355,9 +404,10 @@ export const bypassAuthInDevelopment = (
       firebaseUid: "dev-firebase-uid",
     };
     logger.warn("⚠️ Authentication bypassed for development");
-    return next();
+    next();
+    return;
   }
 
   // Continue with normal authentication
-  return authenticate(req, res, next);
+  authenticate(req, res, next);
 };

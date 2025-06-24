@@ -5,7 +5,7 @@ import Papa from "papaparse";
 import ExcelJS from "exceljs";
 
 // CORREGIDO: Importar tipos desde archivo local
-import { ApiResponse } from "../types";
+import { ApiResponse } from "../types/shared";
 
 const contactService = new ContactService();
 
@@ -346,7 +346,8 @@ export class ContactController {
   });
 
   // CORREGIDO: Método adicional para obtener estadísticas de contactos
-  getStats = asyncHandler(async (req: Request, res: Response) => {
+  getStats = asyncHandler(async (_req: Request, res: Response) => {
+    // Agregado underscore para req no usado
     try {
       // Mock stats - implementar lógica real según necesidades
       const stats = {

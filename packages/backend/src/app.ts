@@ -114,8 +114,8 @@ if (config.isProduction) {
 // Request logging
 app.use(loggerMiddleware);
 
-// Root endpoint
-app.get("/", (req: Request, res: Response) => {
+// Root endpoint - CORREGIDO: Agregado underscore para req no usado
+app.get("/", (_req: Request, res: Response) => {
   res.json({
     name: "Bukialo CRM API",
     version: "1.0.0",
@@ -138,8 +138,8 @@ app.get("/", (req: Request, res: Response) => {
   });
 });
 
-// Health check endpoint
-app.get("/health", (req: Request, res: Response) => {
+// Health check endpoint - CORREGIDO: Agregado underscore para req no usado
+app.get("/health", (_req: Request, res: Response) => {
   res.json({
     status: "ok",
     timestamp: new Date().toISOString(),
@@ -150,8 +150,8 @@ app.get("/health", (req: Request, res: Response) => {
   });
 });
 
-// API info endpoint
-app.get("/api", (req: Request, res: Response) => {
+// API info endpoint - CORREGIDO: Agregado underscore para req no usado
+app.get("/api", (_req: Request, res: Response) => {
   res.json({
     name: "Bukialo CRM API",
     version: "1.0.0",
@@ -181,9 +181,9 @@ app.get("/api", (req: Request, res: Response) => {
 // Mount API routes with explicit logging
 console.log("🔗 Mounting API routes...");
 
-// Middleware de logging con tipado correcto
+// Middleware de logging con tipado correcto - CORREGIDO: Agregado underscore para res no usado
 const routeLogger =
-  (routeName: string) => (req: Request, res: Response, next: NextFunction) => {
+  (routeName: string) => (req: Request, _res: Response, next: NextFunction) => {
     console.log(
       `${routeName}: ${req.method} ${req.originalUrl} - Origin: ${req.headers.origin || "no-origin"}`
     );

@@ -1,6 +1,6 @@
 import { Router, Request, Response } from "express";
 import { aiController } from "../controllers/ai.controller";
-import { authenticate, optionalAuth } from "../middlewares/auth.middleware";
+import { authenticate } from "../middlewares/auth.middleware"; // Removido optionalAuth no usado
 import { validateBody } from "../middlewares/validation.middleware";
 import { z } from "zod";
 
@@ -28,7 +28,8 @@ const querySchema = z.object({
 // ========================================
 
 // Sugerencias contextuales endpoint público
-router.get("/suggestions", (req: Request, res: Response): void => {
+router.get("/suggestions", (_req: Request, res: Response): void => {
+  // Agregado underscore para req no usado
   const contextualSuggestions = [
     "¿Cuántos contactos nuevos tuvimos este mes?",
     "Muéstrame los destinos más populares",
@@ -57,7 +58,8 @@ router.get("/suggestions", (req: Request, res: Response): void => {
 });
 
 // Endpoint para obtener el estado del servicio AI
-router.get("/status", (req: Request, res: Response): void => {
+router.get("/status", (_req: Request, res: Response): void => {
+  // Agregado underscore para req no usado
   res.json({
     success: true,
     data: {
@@ -99,7 +101,8 @@ router.get("/status", (req: Request, res: Response): void => {
 });
 
 // Test endpoint público
-router.get("/test", (req: Request, res: Response): void => {
+router.get("/test", (_req: Request, res: Response): void => {
+  // Agregado underscore para req no usado
   res.json({
     success: true,
     message: "AI service is working",
@@ -111,7 +114,8 @@ router.get("/test", (req: Request, res: Response): void => {
 });
 
 // Info del servicio AI (público)
-router.get("/", (req: Request, res: Response): void => {
+router.get("/", (_req: Request, res: Response): void => {
+  // Agregado underscore para req no usado
   res.json({
     service: "Bukialo AI Assistant",
     version: "1.0.0",
@@ -135,7 +139,7 @@ router.get("/", (req: Request, res: Response): void => {
 // Query endpoint PÚBLICO para testing - SIN VALIDACIÓN ESTRICTA
 router.post("/query", (req: Request, res: Response): void => {
   try {
-    const { query, context } = req.body;
+    const { query } = req.body; // Removido context no usado
 
     if (!query || typeof query !== "string" || query.trim().length === 0) {
       res.status(400).json({
@@ -239,7 +243,8 @@ router.get("/chat-history", (req: Request, res: Response): void => {
 });
 
 // Insights endpoint público (datos de ejemplo)
-router.get("/insights", (req: Request, res: Response): void => {
+router.get("/insights", (_req: Request, res: Response): void => {
+  // Agregado underscore para req no usado
   // Datos de ejemplo para insights
   const mockInsights = [
     {

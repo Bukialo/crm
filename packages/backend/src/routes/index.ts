@@ -12,7 +12,7 @@ import authRoutes from "./auth.routes";
 const router = Router();
 
 // API info endpoint
-router.get("/", (req: Request, res: Response): void => {
+router.get("/", (_req: Request, res: Response): void => {
   res.json({
     name: "Bukialo CRM API",
     version: "1.0.0",

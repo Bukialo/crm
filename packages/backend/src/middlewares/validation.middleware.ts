@@ -201,7 +201,7 @@ export const validateContactId = validateId("id");
 export const optionalValidation = (schema: ZodSchema) => {
   return async (
     req: Request,
-    res: Response,
+    _res: Response, // CORREGIDO: Agregado underscore para res no usado
     next: NextFunction
   ): Promise<void> => {
     try {
@@ -330,7 +330,7 @@ export const commonSchemas = {
 // Middleware to log validation attempts (for debugging)
 export const logValidation = (
   req: Request,
-  res: Response,
+  _res: Response, // CORREGIDO: Agregado underscore para res no usado
   next: NextFunction
 ): void => {
   console.log(`🔍 Validation check: ${req.method} ${req.path}`, {

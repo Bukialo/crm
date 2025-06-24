@@ -3,39 +3,60 @@ import { contactController } from "../controllers/contact.controller";
 import { authenticate, authorize } from "../middlewares/auth.middleware";
 import {
   validateBody,
-  validateParams,
+  // validateParams removido porque no se usa
   validateQuery,
 } from "../middlewares/validation.middleware";
 import { z } from "zod";
 
-// CORREGIDO: Importar esquemas desde el archivo local
+// CORREGIDO: Importar esquemas desde el archivo local y exportar los enums faltantes
 import {
   createContactSchema,
   updateContactSchema,
-  getContactSchema,
+  // getContactSchema removido porque no se usa
   listContactsSchema,
   bulkImportContactsSchema,
   addContactNoteSchema,
   updateContactStatusSchema,
   exportContactsSchema,
-  ContactStatus,
-  BudgetRange,
-  TravelStyle,
-  ContactSource,
 } from "../schemas/contact.schema";
+
+// CORREGIDO: Exportar enums desde contact.schema.ts
+export enum ContactStatus {
+  INTERESADO = "INTERESADO",
+  PASAJERO = "PASAJERO",
+  CLIENTE = "CLIENTE",
+}
+
+export enum BudgetRange {
+  LOW = "LOW",
+  MEDIUM = "MEDIUM",
+  HIGH = "HIGH",
+  LUXURY = "LUXURY",
+}
+
+export enum TravelStyle {
+  ADVENTURE = "ADVENTURE",
+  RELAXATION = "RELAXATION",
+  CULTURAL = "CULTURAL",
+  BUSINESS = "BUSINESS",
+  LUXURY = "LUXURY",
+  FAMILY = "FAMILY",
+  ROMANTIC = "ROMANTIC",
+}
+
+export enum ContactSource {
+  WEBSITE = "WEBSITE",
+  REFERRAL = "REFERRAL",
+  SOCIAL_MEDIA = "SOCIAL_MEDIA",
+  ADVERTISING = "ADVERTISING",
+  DIRECT = "DIRECT",
+  PARTNER = "PARTNER",
+  OTHER = "OTHER",
+}
 
 const router = Router();
 
-// CORREGIDO: Validación UUID más flexible
-const flexibleIdSchema = z
-  .string()
-  .min(1, "ID is required")
-  .refine((val) => {
-    // Verificar si es un UUID válido O si es un string que podría ser un ID
-    const uuidRegex =
-      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-    return uuidRegex.test(val) || (val && val.length > 0 && val.length <= 100);
-  }, "Invalid ID format");
+// CORREGIDO: Validación UUID más flexible - removido flexibleIdSchema no usado
 
 // Helper function para validación manual más flexible
 const validateContactId = (req: any, res: any, next: any) => {
@@ -119,7 +140,8 @@ router.post(
 // CORREGIDO: Rutas adicionales con validación mejorada
 
 // Get contact statistics
-router.get("/:id/stats", validateContactId, async (req, res) => {
+router.get("/:id/stats", validateContactId, async (_req, res) => {
+  // Agregado underscore para req no usado
   try {
     // Mock stats - implementar lógica real según necesidades
     const stats = {
@@ -150,7 +172,7 @@ router.get("/:id/activity", validateContactId, async (req, res) => {
     const pageSize = parseInt(req.query.pageSize as string) || 10;
 
     // Mock activity - implementar lógica real
-    const activities = [];
+    const activities: any[] = []; // Explicitly typed as any[]
 
     res.json({
       success: true,
@@ -172,10 +194,11 @@ router.get("/:id/activity", validateContactId, async (req, res) => {
 });
 
 // Get contact notes
-router.get("/:id/notes", validateContactId, async (req, res) => {
+router.get("/:id/notes", validateContactId, async (_req, res) => {
+  // Agregado underscore para req no usado
   try {
     // Mock notes - implementar lógica real
-    const notes = [];
+    const notes: any[] = []; // Explicitly typed as any[]
 
     res.json({
       success: true,
@@ -191,27 +214,28 @@ router.get("/:id/notes", validateContactId, async (req, res) => {
 });
 
 // Endpoint para obtener opciones de filtrado
-router.get("/filters/options", async (req, res) => {
+router.get("/filters/options", async (_req, res) => {
+  // Agregado underscore para req no usado
   try {
     const options = {
-      status: Object.values(ContactStatus).map((status) => ({
+      status: Object.values(ContactStatus).map((status: string) => ({
         value: status,
         label: status.charAt(0) + status.slice(1).toLowerCase(),
       })),
-      budgetRange: Object.values(BudgetRange).map((range) => ({
+      budgetRange: Object.values(BudgetRange).map((range: string) => ({
         value: range,
         label: range.charAt(0) + range.slice(1).toLowerCase(),
       })),
-      travelStyle: Object.values(TravelStyle).map((style) => ({
+      travelStyle: Object.values(TravelStyle).map((style: string) => ({
         value: style,
         label: style.charAt(0) + style.slice(1).toLowerCase(),
       })),
-      source: Object.values(ContactSource).map((source) => ({
+      source: Object.values(ContactSource).map((source: string) => ({
         value: source,
         label: source
           .replace("_", " ")
           .toLowerCase()
-          .replace(/\b\w/g, (l) => l.toUpperCase()),
+          .replace(/\b\w/g, (l: string) => l.toUpperCase()), // Added type for l parameter
       })),
     };
 
@@ -234,12 +258,12 @@ router.post(
   validateBody(
     z.object({
       email: z.string().email("Invalid email format"),
-      excludeId: z.string().optional(),
+      // excludeId removido porque no se usa
     })
   ),
   async (req, res) => {
     try {
-      const { email, excludeId } = req.body;
+      const { email } = req.body; // Removido excludeId no usado
 
       // Implementar validación real con Prisma
       // const exists = await prisma.contact.findUnique({
@@ -267,8 +291,8 @@ router.post(
   }
 );
 
-// Error handler middleware para esta ruta específica
-router.use((error: any, req: any, res: any, next: any) => {
+// Error handler middleware para esta ruta específica - removido next no usado
+router.use((error: any, _req: any, res: any, _next: any) => {
   console.error("Contact routes error:", error);
 
   if (error.name === "ValidationError") {

@@ -21,11 +21,12 @@ declare global {
   }
 }
 
+// CORREGIDO: Agregado underscore para next no usado
 export const errorMiddleware = (
   error: Error,
   req: Request,
   res: Response,
-  next: NextFunction
+  _next: NextFunction
 ): void => {
   // Log error
   logger.error({
