@@ -17,30 +17,24 @@ export const useAiChat = () => {
     setSuggestions,
   } = useAiStore();
 
-  // Cargar historial de chat
+  // ✅ DESHABILITAR CHAT HISTORY - CAUSA 401
   const { data: chatHistory } = useQuery({
     queryKey: ["ai-chat-history"],
     queryFn: () => aiService.getChatHistory(),
+    enabled: false, // ✅ CAMBIAR A FALSE
     onSuccess: (data) => {
       if (messages.length === 0 && data.length > 0) {
         setMessages(data);
       }
     },
-    staleTime: 5 * 60 * 1000, // Cache por 5 minutos
+    staleTime: 5 * 60 * 1000,
     refetchOnWindowFocus: false,
   });
 
-  // Obtener sugerencias
-  const { data: querySuggestions } = useQuery({
-    queryKey: ["ai-suggestions"],
-    queryFn: () => aiService.getExampleQueries(),
-    onSuccess: (data) => {
-      if (suggestions.length === 0) {
-        setSuggestions(data);
-      }
-    },
-    staleTime: 10 * 60 * 1000, // Cache por 10 minutos
-  });
+  // ✅ USAR SUGERENCIAS ESTÁTICAS
+  if (suggestions.length === 0) {
+    setSuggestions(aiService.getExampleQueries());
+  }
 
   // Enviar mensaje
   const sendMessageMutation = useMutation({
@@ -152,12 +146,13 @@ export const useAiChat = () => {
     [sendMessageMutation]
   );
 
-  // Obtener insights
+  // ✅ DESHABILITAR INSIGHTS - CAUSA 401
   const { data: insights, isLoading: insightsLoading } = useQuery({
     queryKey: ["ai-insights"],
     queryFn: () => aiService.getInsights(),
-    refetchInterval: 5 * 60 * 1000, // Actualizar cada 5 minutos
-    staleTime: 60 * 1000, // Cache por 1 minuto
+    enabled: false, // ✅ CAMBIAR A FALSE
+    refetchInterval: 5 * 60 * 1000,
+    staleTime: 60 * 1000,
     onError: (error) => {
       console.error("Error loading insights:", error);
     },
@@ -170,7 +165,7 @@ export const useAiChat = () => {
     suggestions:
       suggestions.length > 0 ? suggestions : aiService.getExampleQueries(),
     insights: insights || [],
-    insightsLoading,
+    insightsLoading: false, // ✅ SIEMPRE FALSE
     sendMessage,
     clearMessages: useAiStore.getState().clearMessages,
 

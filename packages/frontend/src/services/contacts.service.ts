@@ -1,6 +1,5 @@
-import api from '../lib/axios'
+import api from "../lib/axios";
 
-// Types (temporalmente aquí hasta resolver el problema de shared)
 export interface Contact {
   id: string;
   firstName: string;
@@ -60,54 +59,130 @@ export interface ContactFilters {
 
 class ContactsService {
   async getContacts(filters: ContactFilters = {}): Promise<ContactsResponse> {
-    const params = new URLSearchParams();
+    try {
+      const params = new URLSearchParams();
 
-    Object.entries(filters).forEach(([key, value]) => {
-      if (value !== undefined && value !== null && value !== "") {
-        if (Array.isArray(value)) {
-          value.forEach((v) => params.append(key, v));
-        } else {
-          params.append(key, String(value));
+      // ✅ LIMPIAR PARÁMETROS PARA EVITAR 400
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== "") {
+          if (Array.isArray(value)) {
+            // Solo agregar arrays que tengan elementos
+            if (value.length > 0) {
+              value.forEach((v) => {
+                if (v && v !== "") {
+                  params.append(key, String(v));
+                }
+              });
+            }
+          } else {
+            // Solo agregar valores no vacíos
+            const stringValue = String(value);
+            if (stringValue !== "" && stringValue !== "undefined") {
+              params.append(key, stringValue);
+            }
+          }
         }
+      });
+
+      console.log("Final contacts params:", params.toString());
+
+      const response = await api.get(`/contacts?${params.toString()}`);
+
+      console.log("Contacts response:", response.data); // Debug
+
+      // ✅ MANEJAR RESPUESTA DEL BACKEND
+      if (response.data && response.data.success) {
+        return response.data.data;
       }
-    });
 
-    const response = await api.get(`/contacts?${params.toString()}`);
-    return response.data.data;
+      // Fallback para respuesta malformada
+      return {
+        items: [],
+        total: 0,
+        page: 1,
+        pageSize: 20,
+        totalPages: 0,
+      };
+    } catch (error: any) {
+      console.error("Contacts service error:", {
+        status: error.response?.status,
+        data: error.response?.data,
+        message: error.message,
+      });
+
+      // ✅ RETORNAR ESTRUCTURA VÁLIDA EN ERROR
+      return {
+        items: [],
+        total: 0,
+        page: 1,
+        pageSize: 20,
+        totalPages: 0,
+      };
+    }
   }
 
-  async getContact(id: string): Promise<Contact> {
-    const response = await api.get(`/contacts/${id}`);
-    return response.data.data;
+  async getContact(id: string): Promise<Contact | null> {
+    try {
+      const response = await api.get(`/contacts/${id}`);
+      return response.data.success ? response.data.data : null;
+    } catch (error) {
+      console.error("Error fetching contact:", error);
+      return null;
+    }
   }
 
-  async createContact(data: CreateContactDto): Promise<Contact> {
-    const response = await api.post("/contacts", data);
-    return response.data.data;
+  async createContact(data: CreateContactDto): Promise<Contact | null> {
+    try {
+      console.log("Creating contact:", data); // Debug
+
+      const response = await api.post("/contacts", data);
+
+      console.log("Create contact response:", response.data); // Debug
+
+      return response.data.success ? response.data.data : null;
+    } catch (error) {
+      console.error("Error creating contact:", error);
+      throw error; // Re-throw para que el hook maneje el error
+    }
   }
 
   async updateContact(
     id: string,
     data: Partial<CreateContactDto>
-  ): Promise<Contact> {
-    const response = await api.put(`/contacts/${id}`, data);
-    return response.data.data;
+  ): Promise<Contact | null> {
+    try {
+      const response = await api.put(`/contacts/${id}`, data);
+      return response.data.success ? response.data.data : null;
+    } catch (error) {
+      console.error("Error updating contact:", error);
+      throw error;
+    }
   }
 
   async updateContactStatus(
     id: string,
     status: Contact["status"],
     reason?: string
-  ): Promise<Contact> {
-    const response = await api.patch(`/contacts/${id}/status`, {
-      status,
-      reason,
-    });
-    return response.data.data;
+  ): Promise<Contact | null> {
+    try {
+      const response = await api.patch(`/contacts/${id}/status`, {
+        status,
+        reason,
+      });
+      return response.data.success ? response.data.data : null;
+    } catch (error) {
+      console.error("Error updating contact status:", error);
+      throw error;
+    }
   }
 
   async deleteContact(id: string): Promise<void> {
-    await api.delete(`/contacts/${id}`);
+    try {
+      await api.delete(`/contacts/${id}`);
+    } catch (error) {
+      console.error("Error deleting contact:", error);
+      throw error;
+    }
   }
 
   async addNote(
@@ -115,46 +190,67 @@ class ContactsService {
     content: string,
     isImportant = false
   ): Promise<void> {
-    await api.post(`/contacts/${contactId}/notes`, { content, isImportant });
+    try {
+      await api.post(`/contacts/${contactId}/notes`, { content, isImportant });
+    } catch (error) {
+      console.error("Error adding note:", error);
+      throw error;
+    }
   }
 
   async importContacts(
     file: File
   ): Promise<{ success: number; failed: number; errors: any[] }> {
-    const formData = new FormData();
-    formData.append("file", file);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
 
-    const response = await api.post("/contacts/import", formData, {
-      headers: {
-        "Content-Type": "multipart/form-data",
-      },
-    });
+      const response = await api.post("/contacts/import", formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
 
-    return response.data.data;
+      return response.data.success
+        ? response.data.data
+        : {
+            success: 0,
+            failed: 0,
+            errors: [],
+          };
+    } catch (error) {
+      console.error("Error importing contacts:", error);
+      throw error;
+    }
   }
 
   async exportContacts(
     filters: ContactFilters = {},
     format: "csv" | "xlsx" = "csv"
   ): Promise<Blob> {
-    const params = new URLSearchParams();
-    params.append("format", format);
+    try {
+      const params = new URLSearchParams();
+      params.append("format", format);
 
-    Object.entries(filters).forEach(([key, value]) => {
-      if (value !== undefined && value !== null && value !== "") {
-        if (Array.isArray(value)) {
-          value.forEach((v) => params.append(key, v));
-        } else {
-          params.append(key, String(value));
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== "") {
+          if (Array.isArray(value)) {
+            value.forEach((v) => params.append(key, v));
+          } else {
+            params.append(key, String(value));
+          }
         }
-      }
-    });
+      });
 
-    const response = await api.get(`/contacts/export?${params.toString()}`, {
-      responseType: "blob",
-    });
+      const response = await api.get(`/contacts/export?${params.toString()}`, {
+        responseType: "blob",
+      });
 
-    return response.data;
+      return response.data;
+    } catch (error) {
+      console.error("Error exporting contacts:", error);
+      throw error;
+    }
   }
 }
 

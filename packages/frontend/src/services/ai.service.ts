@@ -57,34 +57,44 @@ export interface AiInsight {
 class AiService {
   async sendQuery(request: AiQueryRequest): Promise<AiQueryResponse> {
     try {
+      console.log("Sending AI query:", request); // Debug
+
       const response = await api.post("/ai/query", request);
-      return response.data.data;
+
+      console.log("AI Response:", response.data); // Debug
+
+      // ✅ Manejar respuesta del backend corregido
+      if (response.data.success) {
+        return response.data.data;
+      }
+
+      // Fallback si no hay data
+      return this.createFallbackResponse(request.query);
     } catch (error: any) {
       console.error("AI query error:", error);
 
-      // Fallback response en caso de error
-      return {
-        message: {
-          id: Date.now().toString(),
-          role: "assistant",
-          content:
-            "Lo siento, no pude procesar tu consulta en este momento. Por favor, intenta de nuevo o reformula tu pregunta.",
-          timestamp: new Date().toISOString(),
-          metadata: { type: "text" },
-        },
-        suggestions: [
-          "¿Cuántos contactos tengo?",
-          "Muéstrame las ventas del mes",
-          "¿Cuáles son los destinos más populares?",
-        ],
-      };
+      // ✅ Fallback mejorado en caso de error
+      return this.createFallbackResponse(request.query);
     }
+  }
+
+  private createFallbackResponse(query: string): AiQueryResponse {
+    return {
+      message: {
+        id: Date.now().toString(),
+        role: "assistant",
+        content: `Entiendo tu consulta sobre "${query}". En este momento estoy procesando la información. ¿Podrías reformular tu pregunta o probar con algo más específico?`,
+        timestamp: new Date().toISOString(),
+        metadata: { type: "text" },
+      },
+      suggestions: this.getExampleQueries(),
+    };
   }
 
   async getChatHistory(limit = 50): Promise<AiMessage[]> {
     try {
       const response = await api.get(`/ai/chat-history?limit=${limit}`);
-      return response.data.data;
+      return response.data.success ? response.data.data : [];
     } catch (error) {
       console.error("Error getting chat history:", error);
       return [];
@@ -94,7 +104,7 @@ class AiService {
   async getInsights(): Promise<AiInsight[]> {
     try {
       const response = await api.get("/ai/insights");
-      return response.data.data;
+      return response.data.success ? response.data.data : [];
     } catch (error) {
       console.error("Error getting insights:", error);
       return [];

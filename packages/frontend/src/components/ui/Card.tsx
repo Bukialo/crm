@@ -7,7 +7,7 @@ interface CardProps extends HTMLAttributes<HTMLDivElement> {
   padding?: "none" | "sm" | "md" | "lg";
 }
 
-const Card = forwardRef<HTMLDivElement, CardProps>(
+export const Card = forwardRef<HTMLDivElement, CardProps>(
   (
     {
       children,
@@ -111,5 +111,6 @@ export const CardFooter = ({
     {children}
   </div>
 );
+
 
 export default Card;

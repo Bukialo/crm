@@ -1,5 +1,4 @@
-import { ReactNode } from "react";
-import { TrendingUp, TrendingDown, Minus } from "lucide-react";
+import { TrendingUp, TrendingDown, Minus, LucideIcon } from "lucide-react";
 import { clsx } from "clsx";
 import Card from "../ui/Card";
 
@@ -8,7 +7,7 @@ interface StatsCardProps {
   value: string | number;
   change?: number;
   changeLabel?: string;
-  icon: ReactNode;
+  icon: LucideIcon;
   iconColor: string;
   trend?: "up" | "down" | "neutral";
 }

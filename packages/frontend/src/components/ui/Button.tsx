@@ -1,75 +1,78 @@
-import { ButtonHTMLAttributes, forwardRef } from "react";
-import { clsx } from "clsx";
-import { Loader2 } from "lucide-react";
+// src/components/ui/Button.tsx
+import React from "react";
 
-interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: "primary" | "secondary" | "glass" | "danger" | "success";
+export interface ButtonProps {
+  children: React.ReactNode;
+  variant?:
+    | "default"
+    | "outline"
+    | "ghost"
+    | "destructive"
+    | "secondary"
+    | "glass"
+    | "primary";
   size?: "sm" | "md" | "lg";
+  className?: string;
+  onClick?: (e: React.MouseEvent<HTMLButtonElement>) => void;
+  disabled?: boolean;
+  type?: "button" | "submit" | "reset";
   isLoading?: boolean;
   leftIcon?: React.ReactNode;
-  rightIcon?: React.ReactNode;
+  title?: string;
 }
 
-const Button = forwardRef<HTMLButtonElement, ButtonProps>(
-  (
-    {
-      children,
-      className,
-      variant = "primary",
-      size = "md",
-      isLoading = false,
-      disabled,
-      leftIcon,
-      rightIcon,
-      ...props
-    },
-    ref
-  ) => {
-    const baseStyles =
-      "inline-flex items-center justify-center font-medium transition-all duration-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-900 disabled:opacity-50 disabled:cursor-not-allowed";
+const Button: React.FC<ButtonProps> = ({
+  children,
+  variant = "default",
+  size = "md",
+  className = "",
+  onClick,
+  disabled = false,
+  type = "button",
+  isLoading = false,
+  leftIcon,
+  title,
+}) => {
+  const baseClasses =
+    "inline-flex items-center justify-center rounded-lg font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed";
 
-    const variants = {
-      primary:
-        "bg-gradient-primary text-white hover:shadow-lg hover:scale-105 focus:ring-primary-500",
-      secondary:
-        "bg-gradient-secondary text-white hover:shadow-lg hover:scale-105 focus:ring-secondary-500",
-      glass: "glass text-white hover:bg-white/20 focus:ring-white/50",
-      danger:
-        "bg-red-500/20 text-red-200 border border-red-500/30 hover:bg-red-500/30 focus:ring-red-500",
-      success:
-        "bg-green-500/20 text-green-200 border border-green-500/30 hover:bg-green-500/30 focus:ring-green-500",
-    };
+  const variantClasses = {
+    default:
+      "bg-purple-600 text-white hover:bg-purple-700 focus:ring-purple-500",
+    outline:
+      "border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 focus:ring-purple-500",
+    ghost:
+      "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 focus:ring-purple-500",
+    destructive: "bg-red-600 text-white hover:bg-red-700 focus:ring-red-500",
+    secondary:
+      "bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 hover:bg-gray-300 dark:hover:bg-gray-600 focus:ring-gray-500",
+    glass:
+      "bg-white/10 backdrop-blur-sm border border-white/20 text-white hover:bg-white/20 focus:ring-white/50",
+    primary: "bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500",
+  };
 
-    const sizes = {
-      sm: "px-3 py-1.5 text-sm",
-      md: "px-4 py-2 text-base",
-      lg: "px-6 py-3 text-lg",
-    };
+  const sizeClasses = {
+    sm: "px-3 py-1.5 text-sm",
+    md: "px-4 py-2 text-sm",
+    lg: "px-6 py-3 text-base",
+  };
 
-    return (
-      <button
-        ref={ref}
-        className={clsx(baseStyles, variants[variant], sizes[size], className)}
-        disabled={disabled || isLoading}
-        {...props}
-      >
-        {isLoading ? (
-          <>
-            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-            Cargando...
-          </>
-        ) : (
-          <>
-            {leftIcon && <span className="mr-2">{leftIcon}</span>}
-            {children}
-            {rightIcon && <span className="ml-2">{rightIcon}</span>}
-          </>
-        )}
-      </button>
-    );
-  }
-);
-
-Button.displayName = "Button";
+  return (
+    <button
+      type={type}
+      onClick={onClick}
+      disabled={disabled || isLoading}
+      title={title}
+      className={`${baseClasses} ${variantClasses[variant]} ${sizeClasses[size]} ${className}`}
+    >
+      {isLoading ? (
+        <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin mr-2" />
+      ) : leftIcon ? (
+        <span className="mr-2">{leftIcon}</span>
+      ) : null}
+      {children}
+    </button>
+  );
+};
 
 export default Button;

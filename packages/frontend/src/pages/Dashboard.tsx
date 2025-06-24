@@ -1,254 +1,266 @@
+// src/pages/Dashboard.tsx
+import React from "react";
 import {
   Users,
-  Plane,
-  DollarSign,
-  TrendingUp,
   Calendar,
   Mail,
-  RefreshCw,
+  TrendingUp,
+  Plane,
+  DollarSign,
+  Clock,
+  MapPin,
 } from "lucide-react";
-import Card, {
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "../components/ui/Card";
-import Button from "../components/ui/Button";
-import { useAuth } from "../hooks/useAuth";
-import { useDashboard } from "../hooks/useDashboard";
 import { StatsCard } from "../components/dashboard/StatsCard";
-import { SalesChart } from "../components/dashboard/SalesChart";
-import { PipelineChart } from "../components/dashboard/PipelineChart";
-import { TopDestinations } from "../components/dashboard/TopDestinations";
+import { Chart } from "../components/dashboard/Chart";
 import { RecentActivity } from "../components/dashboard/RecentActivity";
-import { AgentPerformance } from "../components/dashboard/AgentPerformance";
+import { QuickActions } from "../components/dashboard/QuickActions";
 
-// Datos de ejemplo mientras no tengamos el backend conectado
-const mockData = {
-  stats: {
-    totalContacts: 1234,
-    newContactsThisMonth: 87,
-    activeTrips: 42,
-    completedTrips: 156,
-    revenue: {
-      thisMonth: 45678,
-      lastMonth: 38945,
-      growth: 17.3,
+export const Dashboard: React.FC = () => {
+  // Mock data para el dashboard con tipos compatibles con StatsCard
+  const stats = [
+    {
+      title: "Total Contactos",
+      value: "1,234",
+      change: 12, // Número en lugar de string
+      changeType: "positive" as const,
+      icon: Users,
+      color: "purple",
+      iconColor: "#8b5cf6",
     },
-    conversionRate: 24.5,
-    contactsByStatus: {
-      interesados: 543,
-      pasajeros: 289,
-      clientes: 402,
+    {
+      title: "Viajes Activos",
+      value: "87",
+      change: 5, // Número en lugar de string
+      changeType: "positive" as const,
+      icon: Plane,
+      color: "blue",
+      iconColor: "#3b82f6",
     },
-  },
-  salesChart: [
-    { month: "Ene", sales: 32000, trips: 28 },
-    { month: "Feb", sales: 38000, trips: 32 },
-    { month: "Mar", sales: 35000, trips: 30 },
-    { month: "Abr", sales: 42000, trips: 38 },
-    { month: "May", sales: 48000, trips: 42 },
-    { month: "Jun", sales: 45678, trips: 35 },
-  ],
-  topDestinations: [
-    { destination: "París", trips: 45, revenue: 67500 },
-    { destination: "Roma", trips: 38, revenue: 52300 },
-    { destination: "Nueva York", trips: 32, revenue: 48900 },
-    { destination: "Tokio", trips: 28, revenue: 42700 },
-    { destination: "Barcelona", trips: 25, revenue: 31250 },
-  ],
-  agentPerformance: [
+    {
+      title: "Ingresos del Mes",
+      value: "$45,678",
+      change: 18, // Número en lugar de string
+      changeType: "positive" as const,
+      icon: DollarSign,
+      color: "green",
+      iconColor: "#10b981",
+    },
+    {
+      title: "Conversión",
+      value: "23.5%",
+      change: -2, // Número negativo en lugar de string
+      changeType: "negative" as const,
+      icon: TrendingUp,
+      color: "orange",
+      iconColor: "#f59e0b",
+    },
+  ];
+
+  const chartData = [
+    { name: "Ene", value: 400 },
+    { name: "Feb", value: 300 },
+    { name: "Mar", value: 600 },
+    { name: "Abr", value: 800 },
+    { name: "May", value: 500 },
+    { name: "Jun", value: 900 },
+  ];
+
+  // Actividades recientes con tipos compatibles con RecentActivity
+  const recentActivities = [
     {
       id: "1",
-      name: "María García",
-      contactsManaged: 125,
-      tripsBooked: 28,
-      revenue: 42300,
-      conversionRate: 22.4,
+      type: "contact_created" as const, // Tipo específico esperado
+      title: "Nuevo contacto registrado",
+      description: "María González se registró como interesada",
+      timestamp: "Hace 5 minutos",
+      icon: Users,
+      user: {
+        name: "Sistema",
+        avatar: "",
+      },
     },
     {
       id: "2",
-      name: "Carlos López",
-      contactsManaged: 98,
-      tripsBooked: 19,
-      revenue: 31200,
-      conversionRate: 19.4,
+      type: "trip_booked" as const, // Tipo específico esperado
+      title: "Viaje confirmado",
+      description: "Carlos Mendoza confirmó su viaje a París",
+      timestamp: "Hace 15 minutos",
+      icon: Plane,
+      user: {
+        name: "Ana García",
+        avatar:
+          "https://images.unsplash.com/photo-1494790108755-2616b612b786?w=32&h=32&fit=crop&crop=face",
+      },
     },
     {
       id: "3",
-      name: "Ana Martínez",
-      contactsManaged: 87,
-      tripsBooked: 15,
-      revenue: 28900,
-      conversionRate: 17.2,
-    },
-  ],
-  recentActivity: [
-    {
-      id: "1",
-      type: "contact_created" as const,
-      description: "Nuevo contacto: Roberto Silva",
-      timestamp: new Date().toISOString(),
-      user: { name: "María García" },
-    },
-    {
-      id: "2",
-      type: "trip_booked" as const,
-      description: "Viaje reservado a París - 2 personas",
-      timestamp: new Date(Date.now() - 3600000).toISOString(),
-      user: { name: "Carlos López" },
-    },
-    {
-      id: "3",
-      type: "status_changed" as const,
-      description: "Juan Pérez cambió a Pasajero",
-      timestamp: new Date(Date.now() - 7200000).toISOString(),
-      user: { name: "Ana Martínez" },
+      type: "status_changed" as const, // Tipo específico esperado
+      title: "Campaña enviada",
+      description: "Promoción de verano enviada a 250 contactos",
+      timestamp: "Hace 1 hora",
+      icon: Mail,
+      user: {
+        name: "Sistema",
+        avatar: "",
+      },
     },
     {
       id: "4",
-      type: "payment_received" as const,
-      description: "Pago recibido: $1,500 - Viaje a Roma",
-      timestamp: new Date(Date.now() - 10800000).toISOString(),
-      user: { name: "María García" },
+      type: "payment_received" as const, // Tipo específico esperado
+      title: "Reunión programada",
+      description: "Cita con Ana Pérez para el lunes 10:00 AM",
+      timestamp: "Hace 2 horas",
+      icon: Calendar,
+      user: {
+        name: "Juan Pérez",
+        avatar:
+          "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=32&h=32&fit=crop&crop=face",
+      },
     },
-  ],
-};
-
-const Dashboard = () => {
-  const { user } = useAuth();
-
-  // Cuando tengamos el backend, usar:
-  // const { stats, salesChart, topDestinations, agentPerformance, recentActivity, isLoading, refetch } = useDashboard()
-
-  // Por ahora usamos datos mock
-  const {
-    stats,
-    salesChart,
-    topDestinations,
-    agentPerformance,
-    recentActivity,
-  } = mockData;
-  const isLoading = false;
+  ];
 
   return (
     <div className="space-y-6">
-      {/* Welcome Header */}
-      <div className="flex items-center justify-between">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-white mb-2">
-            Bienvenido, {user?.firstName} 👋
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+            Dashboard
           </h1>
-          <p className="text-white/60">
-            Este es el resumen de tu actividad de hoy
+          <p className="text-gray-600 dark:text-gray-400">
+            Resumen de tu agencia de viajes
           </p>
         </div>
-        <Button
-          variant="glass"
-          leftIcon={<RefreshCw className="w-5 h-5" />}
-          onClick={() => {}} // refetch cuando tengamos el hook
-        >
-          Actualizar
-        </Button>
+
+        <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+          <Clock className="w-4 h-4" />
+          Última actualización: hace 5 minutos
+        </div>
       </div>
 
-      {/* Stats Grid */}
+      {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatsCard
-          title="Total Contactos"
-          value={stats.totalContacts}
-          change={12}
-          icon={<Users className="w-6 h-6 text-white" />}
-          iconColor="bg-gradient-to-br from-blue-500 to-cyan-500"
-        />
-
-        <StatsCard
-          title="Viajes Activos"
-          value={stats.activeTrips}
-          change={18}
-          icon={<Plane className="w-6 h-6 text-white" />}
-          iconColor="bg-gradient-to-br from-purple-500 to-pink-500"
-        />
-
-        <StatsCard
-          title="Ingresos del Mes"
-          value={`${stats.revenue.thisMonth.toLocaleString()}`}
-          change={stats.revenue.growth}
-          icon={<DollarSign className="w-6 h-6 text-white" />}
-          iconColor="bg-gradient-to-br from-green-500 to-emerald-500"
-        />
-
-        <StatsCard
-          title="Tasa de Conversión"
-          value={`${stats.conversionRate}%`}
-          change={4.2}
-          icon={<TrendingUp className="w-6 h-6 text-white" />}
-          iconColor="bg-gradient-to-br from-orange-500 to-red-500"
-        />
+        {stats.map((stat, index) => (
+          <StatsCard key={index} {...stat} />
+        ))}
       </div>
 
-      {/* Charts Row */}
+      {/* Main Content Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2">
-          <SalesChart data={salesChart} isLoading={isLoading} />
-        </div>
-        <div>
-          <PipelineChart data={stats.contactsByStatus} isLoading={isLoading} />
-        </div>
-      </div>
-
-      {/* Content Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Top Destinations */}
-        <TopDestinations destinations={topDestinations} isLoading={isLoading} />
-
-        {/* Recent Activity */}
-        <RecentActivity activities={recentActivity} isLoading={isLoading} />
-
-        {/* Agent Performance */}
-        <AgentPerformance agents={agentPerformance} isLoading={isLoading} />
-      </div>
-
-      {/* Quick Actions */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Acciones Rápidas</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <Button
-              variant="glass"
-              className="justify-start"
-              leftIcon={<Users className="w-5 h-5" />}
-              onClick={() => (window.location.href = "/contacts")}
-            >
-              Nuevo Contacto
-            </Button>
-            <Button
-              variant="glass"
-              className="justify-start"
-              leftIcon={<Plane className="w-5 h-5" />}
-            >
-              Crear Viaje
-            </Button>
-            <Button
-              variant="glass"
-              className="justify-start"
-              leftIcon={<Mail className="w-5 h-5" />}
-            >
-              Nueva Campaña
-            </Button>
-            <Button
-              variant="glass"
-              className="justify-start"
-              leftIcon={<Calendar className="w-5 h-5" />}
-            >
-              Ver Calendario
-            </Button>
+        {/* Chart Section - Takes 2 columns */}
+        <div className="lg:col-span-2 space-y-6">
+          {/* Revenue Chart */}
+          <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                Ingresos Mensuales
+              </h3>
+              <select className="px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+                <option>Últimos 6 meses</option>
+                <option>Último año</option>
+              </select>
+            </div>
+            <Chart data={chartData} />
           </div>
-        </CardContent>
-      </Card>
+
+          {/* Destinations Chart */}
+          <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">
+              Destinos Más Populares
+            </h3>
+            <div className="space-y-4">
+              {[
+                { destination: "París, Francia", percentage: 85, count: 42 },
+                { destination: "Roma, Italia", percentage: 70, count: 35 },
+                { destination: "Barcelona, España", percentage: 60, count: 30 },
+                {
+                  destination: "Londres, Reino Unido",
+                  percentage: 45,
+                  count: 22,
+                },
+                {
+                  destination: "Amsterdam, Holanda",
+                  percentage: 30,
+                  count: 15,
+                },
+              ].map((item, index) => (
+                <div key={index} className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <MapPin className="w-4 h-4 text-gray-400" />
+                    <span className="text-sm font-medium text-gray-900 dark:text-white">
+                      {item.destination}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="w-20 bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                      <div
+                        className="bg-purple-600 h-2 rounded-full"
+                        style={{ width: `${item.percentage}%` }}
+                      />
+                    </div>
+                    <span className="text-sm text-gray-600 dark:text-gray-400 w-8">
+                      {item.count}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Right Sidebar */}
+        <div className="space-y-6">
+          {/* Quick Actions */}
+          <QuickActions />
+
+          {/* Recent Activity */}
+          <RecentActivity activities={recentActivities} />
+
+          {/* Upcoming Events */}
+          <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+              Próximos Eventos
+            </h3>
+            <div className="space-y-3">
+              {[
+                {
+                  title: "Reunión con cliente",
+                  time: "10:00 AM",
+                  date: "Hoy",
+                  type: "meeting",
+                },
+                {
+                  title: "Salida grupo París",
+                  time: "06:00 AM",
+                  date: "Mañana",
+                  type: "departure",
+                },
+                {
+                  title: "Seguimiento post-viaje",
+                  time: "02:00 PM",
+                  date: "Viernes",
+                  type: "followup",
+                },
+              ].map((event, index) => (
+                <div
+                  key={index}
+                  className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg"
+                >
+                  <div className="w-2 h-2 bg-purple-600 rounded-full" />
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-gray-900 dark:text-white">
+                      {event.title}
+                    </p>
+                    <p className="text-xs text-gray-600 dark:text-gray-400">
+                      {event.date} • {event.time}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };
-
-export default Dashboard;

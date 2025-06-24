@@ -1,214 +1,266 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+// src/hooks/useAutomations.ts
+import { useState, useEffect } from "react";
 import {
   automationService,
   Automation,
-  CreateAutomationDto,
+  AutomationStats,
   AutomationFilters,
-  ExecutionResult,
+  CreateAutomationDto,
+  UpdateAutomationDto,
+  ExecuteAutomationDto,
+  AutomationExecution,
 } from "../services/automation.service";
-import { useAutomationStore } from "../store/automation.store";
-import toast from "react-hot-toast";
 
-export const useAutomations = (filters: AutomationFilters = {}) => {
-  const queryClient = useQueryClient();
-  const {
-    setAutomations,
-    setLoading,
-    setCreating,
-    setUpdating,
-    setDeleting,
-    addAutomation,
-    updateAutomation,
-    removeAutomation,
-  } = useAutomationStore();
+export interface UseAutomationsReturn {
+  // Data
+  automations: Automation[];
+  stats: AutomationStats;
+  executionHistory: AutomationExecution[];
 
-  // Fetch automations
-  const { data, isLoading, error, refetch } = useQuery({
-    queryKey: ["automations", filters],
-    queryFn: () => automationService.getAutomations(filters),
-    onSuccess: (data) => {
+  // Loading states
+  loading: boolean;
+  statsLoading: boolean;
+  executionLoading: boolean;
+
+  // Error states
+  error: string | null;
+
+  // Actions
+  createAutomation: (data: CreateAutomationDto) => Promise<Automation>;
+  updateAutomation: (
+    id: string,
+    data: UpdateAutomationDto
+  ) => Promise<Automation>;
+  deleteAutomation: (id: string) => Promise<void>;
+  executeAutomation: (
+    params: ExecuteAutomationDto
+  ) => Promise<AutomationExecution>;
+  toggleAutomation: (id: string, isActive: boolean) => Promise<void>;
+  refreshAutomations: (filters?: AutomationFilters) => Promise<void>;
+  refreshStats: () => Promise<void>;
+  refreshExecutionHistory: (automationId?: string) => Promise<void>;
+
+  // Filters
+  filters: AutomationFilters;
+  setFilters: (filters: Partial<AutomationFilters>) => void;
+}
+
+export const useAutomations = (): UseAutomationsReturn => {
+  // State
+  const [automations, setAutomations] = useState<Automation[]>([]);
+  const [stats, setStats] = useState<AutomationStats>({
+    totalAutomations: 0,
+    activeAutomations: 0,
+    totalExecutions: 0,
+    successRate: 0,
+    executionsToday: 0,
+    executionsThisWeek: 0,
+    executionsThisMonth: 0,
+  });
+  const [executionHistory, setExecutionHistory] = useState<
+    AutomationExecution[]
+  >([]);
+  const [filters, setFiltersState] = useState<AutomationFilters>({});
+
+  // Loading states
+  const [loading, setLoading] = useState(false);
+  const [statsLoading, setStatsLoading] = useState(false);
+  const [executionLoading, setExecutionLoading] = useState(false);
+
+  // Error state
+  const [error, setError] = useState<string | null>(null);
+
+  // Load initial data
+  useEffect(() => {
+    loadInitialData();
+  }, []);
+
+  // Reload automations when filters change
+  useEffect(() => {
+    refreshAutomations(filters);
+  }, [filters]);
+
+  const loadInitialData = async () => {
+    await Promise.all([refreshAutomations(), refreshStats()]);
+  };
+
+  const refreshAutomations = async (filterOverride?: AutomationFilters) => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const currentFilters = filterOverride || filters;
+      const data = await automationService.getAutomations(currentFilters);
       setAutomations(data);
-    },
-    onError: () => {
-      toast.error("Error al cargar automatizaciones");
-    },
-  });
-
-  // Create automation
-  const createMutation = useMutation({
-    mutationFn: (data: CreateAutomationDto) =>
-      automationService.createAutomation(data),
-    onMutate: () => setCreating(true),
-    onSuccess: (newAutomation) => {
-      addAutomation(newAutomation);
-      queryClient.invalidateQueries(["automations"]);
-      queryClient.invalidateQueries(["automation-stats"]);
-      toast.success("Automatización creada exitosamente");
-      return newAutomation;
-    },
-    onError: (error: any) => {
-      toast.error(error.response?.data?.error || "Error al crear automatización");
-    },
-    onSettled: () => setCreating(false),
-  });
-
-  // Update automation
-  const updateMutation = useMutation({
-    mutationFn: ({
-      id,
-      data,
-    }: {
-      id: string;
-      data: Partial<CreateAutomationDto>;
-    }) => automationService.updateAutomation(id, data),
-    onMutate: () => setUpdating(true),
-    onSuccess: (updatedAutomation) => {
-      updateAutomation(updatedAutomation.id, updatedAutomation);
-      queryClient.invalidateQueries(["automations"]);
-      queryClient.invalidateQueries(["automation", updatedAutomation.id]);
-      toast.success("Automatización actualizada");
-    },
-    onError: (error: any) => {
-      toast.error(error.response?.data?.error || "Error al actualizar automatización");
-    },
-    onSettled: () => setUpdating(false),
-  });
-
-  // Delete automation
-  const deleteMutation = useMutation({
-    mutationFn: (id: string) => automationService.deleteAutomation(id),
-    onMutate: () => setDeleting(true),
-    onSuccess: (_, id) => {
-      removeAutomation(id);
-      queryClient.invalidateQueries(["automations"]);
-      queryClient.invalidateQueries(["automation-stats"]);
-      toast.success("Automatización eliminada");
-    },
-    onError: (error: any) => {
-      toast.error(error.response?.data?.error || "Error al eliminar automatización");
-    },
-    onSettled: () => setDeleting(false),
-  });
-
-  // Toggle automation
-  const toggleMutation = useMutation({
-    mutationFn: (id: string) => automationService.toggleAutomation(id),
-    onSuccess: (updatedAutomation) => {
-      updateAutomation(updatedAutomation.id, updatedAutomation);
-      queryClient.invalidateQueries(["automations"]);
-      queryClient.invalidateQueries(["automation", updatedAutomation.id]);
-      toast.success(
-        `Automatización ${updatedAutomation.isActive ? "activada" : "desactivada"}`
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Error loading automations"
       );
-    },
-    onError: (error: any) => {
-      toast.error(error.response?.data?.error || "Error al cambiar estado");
-    },
-  });
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  // Execute automation (for testing)
-  const executeMutation = useMutation({
-    mutationFn: ({
-      id,
-      triggerData,
-    }: {
-      id: string;
-      triggerData: Record<string, any>;
-    }) => automationService.executeAutomation(id, triggerData),
-    onSuccess: (result: ExecutionResult) => {
-      if (result.success) {
-        toast.success(`Automatización ejecutada: ${result.actionsExecuted} acciones completadas`);
-      } else {
-        toast.error(`Error en ejecución: ${result.error}`);
-      }
-      queryClient.invalidateQueries(["automation", result.automationId]);
-      queryClient.invalidateQueries(["automation-stats"]);
-    },
-    onError: (error: any) => {
-      toast.error(error.response?.data?.error || "Error al ejecutar automatización");
-    },
-  });
+  const refreshStats = async () => {
+    setStatsLoading(true);
+
+    try {
+      const data = await automationService.getAutomationStats();
+      setStats(data);
+    } catch (err) {
+      console.error("Error loading automation stats:", err);
+    } finally {
+      setStatsLoading(false);
+    }
+  };
+
+  const refreshExecutionHistory = async (automationId?: string) => {
+    setExecutionLoading(true);
+
+    try {
+      const data = await automationService.getExecutionHistory(automationId);
+      setExecutionHistory(data);
+    } catch (err) {
+      console.error("Error loading execution history:", err);
+    } finally {
+      setExecutionLoading(false);
+    }
+  };
+
+  const createAutomation = async (
+    data: CreateAutomationDto
+  ): Promise<Automation> => {
+    try {
+      const newAutomation = await automationService.createAutomation(data);
+      setAutomations((prev) => [newAutomation, ...prev]);
+      await refreshStats();
+      return newAutomation;
+    } catch (err) {
+      const errorMessage =
+        err instanceof Error ? err.message : "Error creating automation";
+      setError(errorMessage);
+      throw new Error(errorMessage);
+    }
+  };
+
+  const updateAutomation = async (
+    id: string,
+    data: UpdateAutomationDto
+  ): Promise<Automation> => {
+    try {
+      const updatedAutomation = await automationService.updateAutomation(
+        id,
+        data
+      );
+      setAutomations((prev) =>
+        prev.map((automation) =>
+          automation.id === id ? updatedAutomation : automation
+        )
+      );
+      await refreshStats();
+      return updatedAutomation;
+    } catch (err) {
+      const errorMessage =
+        err instanceof Error ? err.message : "Error updating automation";
+      setError(errorMessage);
+      throw new Error(errorMessage);
+    }
+  };
+
+  const deleteAutomation = async (id: string): Promise<void> => {
+    try {
+      await automationService.deleteAutomation(id);
+      setAutomations((prev) =>
+        prev.filter((automation) => automation.id !== id)
+      );
+      await refreshStats();
+    } catch (err) {
+      const errorMessage =
+        err instanceof Error ? err.message : "Error deleting automation";
+      setError(errorMessage);
+      throw new Error(errorMessage);
+    }
+  };
+
+  const executeAutomation = async (
+    params: ExecuteAutomationDto
+  ): Promise<AutomationExecution> => {
+    try {
+      const execution = await automationService.executeAutomation(params);
+
+      // Update execution count for the automation
+      setAutomations((prev) =>
+        prev.map((automation) =>
+          automation.id === params.id
+            ? {
+                ...automation,
+                executionCount: automation.executionCount + 1,
+                lastExecuted: new Date().toISOString(),
+              }
+            : automation
+        )
+      );
+
+      await refreshStats();
+      return execution;
+    } catch (err) {
+      const errorMessage =
+        err instanceof Error ? err.message : "Error executing automation";
+      setError(errorMessage);
+      throw new Error(errorMessage);
+    }
+  };
+
+  const toggleAutomation = async (
+    id: string,
+    isActive: boolean
+  ): Promise<void> => {
+    try {
+      await automationService.toggleAutomation(id, isActive);
+      setAutomations((prev) =>
+        prev.map((automation) =>
+          automation.id === id ? { ...automation, isActive } : automation
+        )
+      );
+      await refreshStats();
+    } catch (err) {
+      const errorMessage =
+        err instanceof Error ? err.message : "Error toggling automation";
+      setError(errorMessage);
+      throw new Error(errorMessage);
+    }
+  };
+
+  const setFilters = (newFilters: Partial<AutomationFilters>) => {
+    setFiltersState((prev) => ({ ...prev, ...newFilters }));
+  };
 
   return {
     // Data
-    automations: data || [],
-    
-    // Loading states
-    isLoading: isLoading || false,
-    isCreating: createMutation.isLoading,
-    isUpdating: updateMutation.isLoading,
-    isDeleting: deleteMutation.isLoading,
-    isToggling: toggleMutation.isLoading,
-    isExecuting: executeMutation.isLoading,
+    automations,
+    stats,
+    executionHistory,
 
-    // Error
+    // Loading states
+    loading,
+    statsLoading,
+    executionLoading,
+
+    // Error state
     error,
 
     // Actions
-    createAutomation: createMutation.mutateAsync,
-    updateAutomation: updateMutation.mutateAsync,
-    deleteAutomation: deleteMutation.mutateAsync,
-    toggleAutomation: toggleMutation.mutateAsync,
-    executeAutomation: executeMutation.mutateAsync,
-    refetch,
+    createAutomation,
+    updateAutomation,
+    deleteAutomation,
+    executeAutomation,
+    toggleAutomation,
+    refreshAutomations,
+    refreshStats,
+    refreshExecutionHistory,
+
+    // Filters
+    filters,
+    setFilters,
   };
-};
-
-// Hook para una automatización individual
-export const useAutomation = (id: string) => {
-  const { setSelectedAutomation } = useAutomationStore();
-
-  const { data, isLoading, error } = useQuery({
-    queryKey: ["automation", id],
-    queryFn: () => automationService.getAutomation(id),
-    enabled: !!id,
-    onSuccess: (data) => {
-      setSelectedAutomation(data);
-    },
-    onError: () => {
-      toast.error("Error al cargar automatización");
-    },
-  });
-
-  return {
-    automation: data,
-    isLoading,
-    error,
-  };
-};
-
-// Hook para estadísticas de automatizaciones
-export const useAutomationStats = () => {
-  return useQuery({
-    queryKey: ["automation-stats"],
-    queryFn: () => automationService.getStats(),
-    refetchInterval: 60000, // Refrescar cada minuto
-    onError: () => {
-      toast.error("Error al cargar estadísticas");
-    },
-  });
-};
-
-// Hook para templates de triggers
-export const useTriggerTemplates = () => {
-  return useQuery({
-    queryKey: ["trigger-templates"],
-    queryFn: () => automationService.getTriggerTemplates(),
-    staleTime: 5 * 60 * 1000, // Cache por 5 minutos
-    onError: () => {
-      toast.error("Error al cargar templates de triggers");
-    },
-  });
-};
-
-// Hook para templates de acciones
-export const useActionTemplates = () => {
-  return useQuery({
-    queryKey: ["action-templates"],
-    queryFn: () => automationService.getActionTemplates(),
-    staleTime: 5 * 60 * 1000, // Cache por 5 minutos
-    onError: () => {
-      toast.error("Error al cargar templates de acciones");
-    },
-  });
 };

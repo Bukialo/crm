@@ -1,462 +1,338 @@
-import { useState, useEffect } from "react";
-import { Plus, X, Users, Filter } from "lucide-react";
-import Button from "../ui/Button";
+// src/components/campaigns/SegmentBuilder.tsx
+import React, { useState } from "react";
+// Removidos: Plus, Filter - no utilizados
+import { X, Users } from "lucide-react";
 import Card, { CardContent, CardHeader, CardTitle } from "../ui/Card";
+import Button from "../ui/Button";
+import Input from "../ui/Input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../ui/select";
 
 interface SegmentCriteria {
-  status?: string[];
-  destinations?: string[];
-  budgetRange?: string[];
-  lastTripDays?: number;
-  tags?: string[];
-  source?: string[];
-  noActivityDays?: number;
+  id: string;
+  field: string;
+  operator: string;
+  value: string;
 }
 
 interface SegmentBuilderProps {
-  criteria: SegmentCriteria;
-  onChange: (criteria: SegmentCriteria) => void;
-  onEstimateChange: (estimate: number) => void;
+  onSegmentChange: (criteria: SegmentCriteria[]) => void;
+  initialCriteria?: SegmentCriteria[];
 }
 
-const statusOptions = [
-  { value: "INTERESADO", label: "Interesado" },
-  { value: "PASAJERO", label: "Pasajero" },
-  { value: "CLIENTE", label: "Cliente" },
-];
+export const SegmentBuilder: React.FC<SegmentBuilderProps> = ({
+  onSegmentChange,
+  initialCriteria = [],
+}) => {
+  const [criteria, setCriteria] = useState<SegmentCriteria[]>(initialCriteria);
+  const [previewCount, setPreviewCount] = useState<number>(0);
+  const [isPreviewLoading, setIsPreviewLoading] = useState(false);
 
-const budgetRangeOptions = [
-  { value: "LOW", label: "Económico ($0 - $1,000)" },
-  { value: "MEDIUM", label: "Medio ($1,000 - $3,000)" },
-  { value: "HIGH", label: "Alto ($3,000 - $10,000)" },
-  { value: "LUXURY", label: "Lujo ($10,000+)" },
-];
+  const fieldOptions = [
+    { value: "status", label: "Estado" },
+    { value: "source", label: "Fuente" },
+    { value: "tags", label: "Etiquetas" },
+    { value: "budgetRange", label: "Rango de Presupuesto" },
+    { value: "travelStyle", label: "Estilo de Viaje" },
+    { value: "destination", label: "Destino" },
+    { value: "createdAt", label: "Fecha de Registro" },
+    { value: "lastContact", label: "Último Contacto" },
+  ];
 
-const sourceOptions = [
-  { value: "WEBSITE", label: "Sitio Web" },
-  { value: "REFERRAL", label: "Referido" },
-  { value: "SOCIAL_MEDIA", label: "Redes Sociales" },
-  { value: "ADVERTISING", label: "Publicidad" },
-  { value: "DIRECT", label: "Directo" },
-  { value: "PARTNER", label: "Partner" },
-  { value: "OTHER", label: "Otro" },
-];
+  const operatorOptions = {
+    text: [
+      { value: "equals", label: "Es igual a" },
+      { value: "contains", label: "Contiene" },
+      { value: "not_contains", label: "No contiene" },
+    ],
+    select: [
+      { value: "equals", label: "Es igual a" },
+      { value: "not_equals", label: "No es igual a" },
+    ],
+    date: [
+      { value: "after", label: "Después de" },
+      { value: "before", label: "Antes de" },
+      { value: "between", label: "Entre" },
+    ],
+    array: [
+      { value: "contains", label: "Contiene" },
+      { value: "not_contains", label: "No contiene" },
+    ],
+  };
 
-const popularDestinations = [
-  "París",
-  "Roma",
-  "Nueva York",
-  "Tokio",
-  "Barcelona",
-  "Londres",
-  "Dubai",
-  "Cancún",
-  "Buenos Aires",
-  "Sydney",
-  "Madrid",
-  "Miami",
-];
+  const getFieldType = (field: string) => {
+    switch (field) {
+      case "status":
+      case "source":
+      case "budgetRange":
+      case "travelStyle":
+        return "select";
+      case "createdAt":
+      case "lastContact":
+        return "date";
+      case "tags":
+      case "destination":
+        return "array";
+      default:
+        return "text";
+    }
+  };
 
-const commonTags = [
-  "VIP",
-  "Corporativo",
-  "Familiar",
-  "Luna de Miel",
-  "Aventura",
-  "Relax",
-  "Cultural",
-  "Negocios",
-  "Frecuente",
-  "Premium",
-];
+  const getFieldOptions = (field: string) => {
+    switch (field) {
+      case "status":
+        return [
+          { value: "INTERESADO", label: "Interesado" },
+          { value: "PASAJERO", label: "Pasajero" },
+          { value: "CLIENTE", label: "Cliente" },
+        ];
+      case "source":
+        return [
+          { value: "WEBSITE", label: "Sitio Web" },
+          { value: "REFERRAL", label: "Referido" },
+          { value: "SOCIAL_MEDIA", label: "Redes Sociales" },
+          { value: "ADVERTISING", label: "Publicidad" },
+        ];
+      case "budgetRange":
+        return [
+          { value: "LOW", label: "Bajo" },
+          { value: "MEDIUM", label: "Medio" },
+          { value: "HIGH", label: "Alto" },
+          { value: "LUXURY", label: "Lujo" },
+        ];
+      case "travelStyle":
+        return [
+          { value: "ADVENTURE", label: "Aventura" },
+          { value: "RELAXATION", label: "Relax" },
+          { value: "CULTURAL", label: "Cultural" },
+          { value: "BUSINESS", label: "Negocios" },
+        ];
+      default:
+        return [];
+    }
+  };
 
-export const SegmentBuilder = ({
-  criteria,
-  onChange,
-  onEstimateChange,
-}: SegmentBuilderProps) => {
-  const [estimatedCount, setEstimatedCount] = useState(0);
-  const [isCalculating, setIsCalculating] = useState(false);
-
-  // Simulate API call to estimate recipients
-  useEffect(() => {
-    const calculateEstimate = async () => {
-      setIsCalculating(true);
-
-      // Simulate API delay
-      await new Promise((resolve) => setTimeout(resolve, 500));
-
-      // Mock calculation based on criteria
-      let estimate = 1000; // Base number
-
-      if (criteria.status?.length) {
-        estimate = Math.floor(estimate * (criteria.status.length / 3));
-      }
-
-      if (criteria.budgetRange?.length) {
-        estimate = Math.floor(estimate * (criteria.budgetRange.length / 4));
-      }
-
-      if (criteria.destinations?.length) {
-        estimate = Math.floor(estimate * 0.3);
-      }
-
-      if (criteria.tags?.length) {
-        estimate = Math.floor(estimate * 0.5);
-      }
-
-      if (criteria.lastTripDays) {
-        estimate = Math.floor(estimate * 0.4);
-      }
-
-      if (criteria.noActivityDays) {
-        estimate = Math.floor(estimate * 0.6);
-      }
-
-      // Add some randomness
-      estimate = Math.floor(estimate * (0.8 + Math.random() * 0.4));
-
-      setEstimatedCount(Math.max(0, estimate));
-      onEstimateChange(Math.max(0, estimate));
-      setIsCalculating(false);
+  const addCriteria = () => {
+    const newCriteria: SegmentCriteria = {
+      id: `criteria_${Date.now()}`,
+      field: "status",
+      operator: "equals",
+      value: "",
     };
-
-    calculateEstimate();
-  }, [criteria, onEstimateChange]);
-
-  const handleStatusChange = (status: string) => {
-    const currentStatuses = criteria.status || [];
-    const newStatuses = currentStatuses.includes(status)
-      ? currentStatuses.filter((s) => s !== status)
-      : [...currentStatuses, status];
-
-    onChange({ ...criteria, status: newStatuses });
+    const updatedCriteria = [...criteria, newCriteria];
+    setCriteria(updatedCriteria);
+    onSegmentChange(updatedCriteria);
   };
 
-  const handleBudgetRangeChange = (range: string) => {
-    const currentRanges = criteria.budgetRange || [];
-    const newRanges = currentRanges.includes(range)
-      ? currentRanges.filter((r) => r !== range)
-      : [...currentRanges, range];
-
-    onChange({ ...criteria, budgetRange: newRanges });
+  const removeCriteria = (id: string) => {
+    const updatedCriteria = criteria.filter((c) => c.id !== id);
+    setCriteria(updatedCriteria);
+    onSegmentChange(updatedCriteria);
   };
 
-  const handleSourceChange = (source: string) => {
-    const currentSources = criteria.source || [];
-    const newSources = currentSources.includes(source)
-      ? currentSources.filter((s) => s !== source)
-      : [...currentSources, source];
-
-    onChange({ ...criteria, source: newSources });
+  const updateCriteria = (
+    id: string,
+    field: keyof SegmentCriteria,
+    value: string
+  ) => {
+    const updatedCriteria = criteria.map((c) =>
+      c.id === id ? { ...c, [field]: value } : c
+    );
+    setCriteria(updatedCriteria);
+    onSegmentChange(updatedCriteria);
   };
 
-  const handleDestinationChange = (destination: string) => {
-    const currentDestinations = criteria.destinations || [];
-    const newDestinations = currentDestinations.includes(destination)
-      ? currentDestinations.filter((d) => d !== destination)
-      : [...currentDestinations, destination];
-
-    onChange({ ...criteria, destinations: newDestinations });
+  const previewSegment = async () => {
+    setIsPreviewLoading(true);
+    try {
+      // Simular llamada a API para obtener preview
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      const mockCount = Math.floor(Math.random() * 500) + 50;
+      setPreviewCount(mockCount);
+    } catch (error) {
+      console.error("Error previewing segment:", error);
+    } finally {
+      setIsPreviewLoading(false);
+    }
   };
 
-  const handleTagChange = (tag: string) => {
-    const currentTags = criteria.tags || [];
-    const newTags = currentTags.includes(tag)
-      ? currentTags.filter((t) => t !== tag)
-      : [...currentTags, tag];
+  const renderValueInput = (criteria: SegmentCriteria) => {
+    const fieldType = getFieldType(criteria.field);
+    const fieldOptions = getFieldOptions(criteria.field);
 
-    onChange({ ...criteria, tags: newTags });
+    if (fieldType === "select" && fieldOptions.length > 0) {
+      return (
+        <Select
+          value={criteria.value}
+          onValueChange={(value) => updateCriteria(criteria.id, "value", value)}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Seleccionar valor" />
+          </SelectTrigger>
+          <SelectContent>
+            {fieldOptions.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      );
+    }
+
+    if (fieldType === "date") {
+      return (
+        <Input
+          type="date"
+          value={criteria.value}
+          onChange={(e) => updateCriteria(criteria.id, "value", e.target.value)}
+        />
+      );
+    }
+
+    return (
+      <Input
+        type="text"
+        value={criteria.value}
+        onChange={(e) => updateCriteria(criteria.id, "value", e.target.value)}
+        placeholder="Ingresa el valor"
+      />
+    );
   };
-
-  const clearAllFilters = () => {
-    onChange({});
-  };
-
-  const hasActiveFilters = Object.keys(criteria).some((key) => {
-    const value = criteria[key as keyof SegmentCriteria];
-    return Array.isArray(value) ? value.length > 0 : value !== undefined;
-  });
 
   return (
-    <div className="space-y-6">
-      {/* Estimated Recipients */}
-      <Card variant="gradient">
-        <CardContent className="p-6">
-          <div className="text-center">
-            <div className="flex items-center justify-center gap-2 mb-2">
-              <Users className="w-6 h-6 text-white" />
-              <h3 className="text-lg font-semibold text-white">
-                Destinatarios Estimados
-              </h3>
-            </div>
-            {isCalculating ? (
-              <div className="flex items-center justify-center gap-2">
-                <div className="loader" />
-                <span className="text-white/60">Calculando...</span>
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Users className="w-5 h-5" />
+          Constructor de Segmentos
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-4">
+          {/* Criteria List */}
+          {criteria.map((criterion, index) => (
+            <div
+              key={criterion.id}
+              className="flex items-center gap-3 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg"
+            >
+              {index > 0 && (
+                <div className="text-sm font-medium text-purple-600 dark:text-purple-400">
+                  Y
+                </div>
+              )}
+
+              {/* Field Selection */}
+              <div className="flex-1">
+                <Select
+                  value={criterion.field}
+                  onValueChange={(value) =>
+                    updateCriteria(criterion.id, "field", value)
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {fieldOptions.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
-            ) : (
-              <p className="text-3xl font-bold text-white">
-                {estimatedCount.toLocaleString()}
-              </p>
+
+              {/* Operator Selection */}
+              <div className="flex-1">
+                <Select
+                  value={criterion.operator}
+                  onValueChange={(value) =>
+                    updateCriteria(criterion.id, "operator", value)
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {operatorOptions[
+                      getFieldType(
+                        criterion.field
+                      ) as keyof typeof operatorOptions
+                    ]?.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Value Input */}
+              <div className="flex-1">{renderValueInput(criterion)}</div>
+
+              {/* Remove Button */}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => removeCriteria(criterion.id)}
+                leftIcon={<X className="w-4 h-4" />}
+              >
+                Eliminar
+              </Button>
+            </div>
+          ))}
+
+          {/* Add Criteria Button */}
+          <div className="flex items-center gap-3">
+            <Button variant="outline" onClick={addCriteria}>
+              Agregar Criterio
+            </Button>
+
+            {criteria.length > 0 && (
+              <Button
+                variant="outline"
+                onClick={previewSegment}
+                disabled={isPreviewLoading}
+              >
+                {isPreviewLoading ? "Cargando..." : "Vista Previa"}
+              </Button>
             )}
-            <p className="text-sm text-white/60 mt-1">
-              contactos que recibirán esta campaña
-            </p>
           </div>
-        </CardContent>
-      </Card>
 
-      {/* Clear Filters */}
-      {hasActiveFilters && (
-        <div className="flex justify-between items-center">
-          <p className="text-sm text-white/60">Filtros activos aplicados</p>
-          <Button
-            variant="glass"
-            size="sm"
-            onClick={clearAllFilters}
-            leftIcon={<X className="w-4 h-4" />}
-          >
-            Limpiar Todo
-          </Button>
+          {/* Preview Results */}
+          {previewCount > 0 && (
+            <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+              <div className="flex items-center gap-2">
+                <Users className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                <span className="font-medium text-blue-900 dark:text-blue-100">
+                  Este segmento incluye {previewCount.toLocaleString()}{" "}
+                  contactos
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* Empty State */}
+          {criteria.length === 0 && (
+            <div className="text-center py-8">
+              <Users className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+                Crea tu primer segmento
+              </h3>
+              <p className="text-gray-600 dark:text-gray-400 mb-4">
+                Agrega criterios para segmentar tu audiencia
+              </p>
+              <Button onClick={addCriteria}>Agregar Primer Criterio</Button>
+            </div>
+          )}
         </div>
-      )}
-
-      {/* Status Filter */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Estado del Contacto</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-wrap gap-2">
-            {statusOptions.map((option) => (
-              <button
-                key={option.value}
-                onClick={() => handleStatusChange(option.value)}
-                className={`px-3 py-2 rounded-lg text-sm transition-all ${
-                  criteria.status?.includes(option.value)
-                    ? "bg-primary-500 text-white"
-                    : "glass text-white/60 hover:text-white"
-                }`}
-              >
-                {option.label}
-              </button>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Budget Range Filter */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Rango de Presupuesto</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-            {budgetRangeOptions.map((option) => (
-              <button
-                key={option.value}
-                onClick={() => handleBudgetRangeChange(option.value)}
-                className={`px-3 py-2 rounded-lg text-sm transition-all text-left ${
-                  criteria.budgetRange?.includes(option.value)
-                    ? "bg-primary-500 text-white"
-                    : "glass text-white/60 hover:text-white"
-                }`}
-              >
-                {option.label}
-              </button>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Source Filter */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Fuente de Contacto</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-wrap gap-2">
-            {sourceOptions.map((option) => (
-              <button
-                key={option.value}
-                onClick={() => handleSourceChange(option.value)}
-                className={`px-3 py-2 rounded-lg text-sm transition-all ${
-                  criteria.source?.includes(option.value)
-                    ? "bg-primary-500 text-white"
-                    : "glass text-white/60 hover:text-white"
-                }`}
-              >
-                {option.label}
-              </button>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Destination Filter */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Destinos de Interés</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-wrap gap-2">
-            {popularDestinations.map((destination) => (
-              <button
-                key={destination}
-                onClick={() => handleDestinationChange(destination)}
-                className={`px-3 py-2 rounded-lg text-sm transition-all ${
-                  criteria.destinations?.includes(destination)
-                    ? "bg-primary-500 text-white"
-                    : "glass text-white/60 hover:text-white"
-                }`}
-              >
-                {destination}
-              </button>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Tags Filter */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Etiquetas</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-wrap gap-2">
-            {commonTags.map((tag) => (
-              <button
-                key={tag}
-                onClick={() => handleTagChange(tag)}
-                className={`px-3 py-2 rounded-lg text-sm transition-all ${
-                  criteria.tags?.includes(tag)
-                    ? "bg-primary-500 text-white"
-                    : "glass text-white/60 hover:text-white"
-                }`}
-              >
-                {tag}
-              </button>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Advanced Filters */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Filtros Avanzados</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-white/80 mb-2">
-                Último viaje hace (días)
-              </label>
-              <input
-                type="number"
-                placeholder="Ej: 30"
-                value={criteria.lastTripDays || ""}
-                onChange={(e) =>
-                  onChange({
-                    ...criteria,
-                    lastTripDays: e.target.value
-                      ? parseInt(e.target.value)
-                      : undefined,
-                  })
-                }
-                className="input-glass w-full"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-white/80 mb-2">
-                Sin actividad hace (días)
-              </label>
-              <input
-                type="number"
-                placeholder="Ej: 60"
-                value={criteria.noActivityDays || ""}
-                onChange={(e) =>
-                  onChange({
-                    ...criteria,
-                    noActivityDays: e.target.value
-                      ? parseInt(e.target.value)
-                      : undefined,
-                  })
-                }
-                className="input-glass w-full"
-              />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Quick Presets */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Segmentos Predefinidos</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <Button
-              variant="glass"
-              size="sm"
-              onClick={() =>
-                onChange({
-                  status: ["INTERESADO"],
-                  noActivityDays: 30,
-                })
-              }
-              className="justify-start"
-            >
-              Interesados Inactivos
-            </Button>
-
-            <Button
-              variant="glass"
-              size="sm"
-              onClick={() =>
-                onChange({
-                  status: ["CLIENTE"],
-                  lastTripDays: 365,
-                })
-              }
-              className="justify-start"
-            >
-              Clientes Recurrentes
-            </Button>
-
-            <Button
-              variant="glass"
-              size="sm"
-              onClick={() =>
-                onChange({
-                  budgetRange: ["HIGH", "LUXURY"],
-                  status: ["PASAJERO", "CLIENTE"],
-                })
-              }
-              className="justify-start"
-            >
-              Segmento Premium
-            </Button>
-
-            <Button
-              variant="glass"
-              size="sm"
-              onClick={() =>
-                onChange({
-                  status: ["INTERESADO"],
-                  source: ["WEBSITE", "SOCIAL_MEDIA"],
-                })
-              }
-              className="justify-start"
-            >
-              Leads Digitales
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
+      </CardContent>
+    </Card>
   );
 };

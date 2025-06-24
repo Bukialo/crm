@@ -1,470 +1,359 @@
-import api from "../lib/axios";
+// src/services/automation.service.ts
+
+export type AutomationTriggerType =
+  | "CONTACT_CREATED"
+  | "TRIP_BOOKED"
+  | "PAYMENT_RECEIVED"
+  | "EMAIL_OPENED"
+  | "FORM_SUBMITTED"
+  | "DATE_REACHED"
+  | "STATUS_CHANGED";
+
+export type AutomationActionType =
+  | "SEND_EMAIL"
+  | "SEND_SMS"
+  | "SEND_WHATSAPP"
+  | "UPDATE_CONTACT"
+  | "CREATE_TASK"
+  | "ADD_TAG"
+  | "REMOVE_TAG"
+  | "ASSIGN_AGENT"
+  | "CHANGE_STATUS";
+
+export interface AutomationTrigger {
+  type: AutomationTriggerType;
+  conditions: Record<string, any>;
+  delay?: number; // en minutos
+}
+
+export interface AutomationAction {
+  type: AutomationActionType;
+  parameters: Record<string, any>;
+  delay?: number; // en minutos
+}
 
 export interface Automation {
   id: string;
   name: string;
   description?: string;
   isActive: boolean;
-  triggerType: AutomationTriggerType;
-  triggerConditions: Record<string, any>;
+  trigger: AutomationTrigger;
   actions: AutomationAction[];
-  executionCount?: number;
-  successRate?: number;
-  createdAt: string;
-  updatedAt: string;
-  executions: AutomationExecution[];
-}
-
-export interface AutomationAction {
-  id: string;
-  type: AutomationActionType;
-  parameters: Record<string, any>;
-  delayMinutes: number;
-  order: number;
+  createdAt: Date | string;
+  updatedAt: Date | string;
+  lastExecuted?: Date | string;
+  executionCount: number;
+  successCount: number;
+  failureCount: number;
 }
 
 export interface AutomationExecution {
   id: string;
-  status: "running" | "completed" | "failed";
-  startedAt: string;
-  completedAt?: string;
+  automationId: string;
+  triggeredAt: Date | string;
+  completedAt?: Date | string;
+  status: "PENDING" | "RUNNING" | "COMPLETED" | "FAILED";
+  triggerData: Record<string, any>;
+  executionLog: string[];
   error?: string;
 }
-
-export type AutomationTriggerType =
-  | "CONTACT_CREATED"
-  | "TRIP_QUOTE_REQUESTED"
-  | "PAYMENT_OVERDUE"
-  | "TRIP_COMPLETED"
-  | "NO_ACTIVITY_30_DAYS"
-  | "SEASONAL_OPPORTUNITY"
-  | "BIRTHDAY"
-  | "CUSTOM";
-
-export type AutomationActionType =
-  | "SEND_EMAIL"
-  | "CREATE_TASK"
-  | "SCHEDULE_CALL"
-  | "ADD_TAG"
-  | "UPDATE_STATUS"
-  | "GENERATE_QUOTE"
-  | "ASSIGN_AGENT"
-  | "SEND_WHATSAPP";
-
-export interface CreateAutomationDto {
-  name: string;
-  description?: string;
-  triggerType: AutomationTriggerType;
-  triggerConditions: Record<string, any>;
-  actions: Array<{
-    type: AutomationActionType;
-    parameters: Record<string, any>;
-    delayMinutes?: number;
-    order: number;
-  }>;
+export interface AutomationStats {
+  totalAutomations: number;
+  activeAutomations: number;
+  totalExecutions: number;
+  successRate: number;
+  executionsToday: number;
+  executionsThisWeek: number;
+  executionsThisMonth: number;
 }
 
 export interface AutomationFilters {
   isActive?: boolean;
   triggerType?: AutomationTriggerType;
-  page?: number;
-  pageSize?: number;
+  search?: string;
 }
 
-export interface AutomationStats {
-  totalAutomations: number;
-  activeAutomations: number;
-  totalExecutions: number;
-  recentExecutions: number;
-  successRate: number;
-  recentActivity: Array<{
-    id: string;
-    automationName: string;
-    status: string;
-    startedAt: string;
-    completedAt?: string;
-    error?: string;
-  }>;
-}
-
-export interface TriggerTemplate {
-  type: AutomationTriggerType;
+export interface CreateAutomationDto {
   name: string;
-  description: string;
-  icon: string;
-  conditions: Array<{
-    field: string;
-    label: string;
-    type:
-      | "text"
-      | "number"
-      | "select"
-      | "date"
-      | "datetime"
-      | "array"
-      | "object";
-    options?: string[];
-    default?: any;
-    required?: boolean;
-  }>;
+  description?: string;
+  trigger: AutomationTrigger;
+  actions: AutomationAction[];
+  isActive?: boolean;
 }
 
-export interface ActionTemplate {
-  type: AutomationActionType;
-  name: string;
-  description: string;
-  icon: string;
-  parameters: Array<{
-    field: string;
-    label: string;
-    type:
-      | "text"
-      | "number"
-      | "select"
-      | "date"
-      | "datetime"
-      | "textarea"
-      | "array"
-      | "object";
-    options?: string[];
-    default?: any;
-    required?: boolean;
-  }>;
-}
+export interface UpdateAutomationDto extends Partial<CreateAutomationDto> {}
 
-export interface ExecutionResult {
-  automationId: string;
-  success: boolean;
-  actionsExecuted: number;
-  error?: string;
-  duration: number;
+export interface ExecuteAutomationDto {
+  id: string;
+  triggerData: Record<string, any>;
 }
 
 class AutomationService {
-  async getAutomations(filters: AutomationFilters = {}): Promise<Automation[]> {
-    const params = new URLSearchParams();
+  private baseUrl = "/api/automations";
 
-    Object.entries(filters).forEach(([key, value]) => {
-      if (value !== undefined && value !== null) {
-        params.append(key, String(value));
+  // Obtener todas las automatizaciones
+  async getAutomations(filters?: AutomationFilters): Promise<Automation[]> {
+    try {
+      const queryParams = new URLSearchParams();
+      if (filters?.isActive !== undefined) {
+        queryParams.append("isActive", filters.isActive.toString());
       }
-    });
+      if (filters?.triggerType) {
+        queryParams.append("triggerType", filters.triggerType);
+      }
+      if (filters?.search) {
+        queryParams.append("search", filters.search);
+      }
 
-    const response = await api.get(`/automations?${params.toString()}`);
-    return response.data.data;
+      const response = await fetch(`${this.baseUrl}?${queryParams}`);
+      if (!response.ok) throw new Error("Failed to fetch automations");
+      return response.json();
+    } catch (error) {
+      console.error("Error fetching automations:", error);
+      return this.getMockAutomations(filters);
+    }
   }
 
-  async getAutomation(id: string): Promise<Automation> {
-    const response = await api.get(`/automations/${id}`);
-    return response.data.data;
-  }
-
+  // Crear nueva automatización
   async createAutomation(data: CreateAutomationDto): Promise<Automation> {
-    const response = await api.post("/automations", data);
-    return response.data.data;
+    try {
+      const response = await fetch(this.baseUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data),
+      });
+
+      if (!response.ok) throw new Error("Failed to create automation");
+      return response.json();
+    } catch (error) {
+      console.error("Error creating automation:", error);
+      throw error;
+    }
   }
 
+  // Actualizar automatización
   async updateAutomation(
     id: string,
-    data: Partial<CreateAutomationDto>
+    data: UpdateAutomationDto
   ): Promise<Automation> {
-    const response = await api.put(`/automations/${id}`, data);
-    return response.data.data;
-  }
-
-  async deleteAutomation(id: string): Promise<void> {
-    await api.delete(`/automations/${id}`);
-  }
-
-  async toggleAutomation(id: string): Promise<Automation> {
-    const response = await api.patch(`/automations/${id}/toggle`);
-    return response.data.data;
-  }
-
-  async executeAutomation(
-    id: string,
-    triggerData: Record<string, any>
-  ): Promise<ExecutionResult> {
-    const response = await api.post(`/automations/${id}/execute`, {
-      triggerData,
-    });
-    return response.data.data;
-  }
-
-  async getStats(): Promise<AutomationStats> {
-    const response = await api.get("/automations/stats");
-    return response.data.data;
-  }
-
-  async getTriggerTemplates(): Promise<TriggerTemplate[]> {
-    const response = await api.get("/automations/trigger-templates");
-    return response.data.data;
-  }
-
-  async getActionTemplates(): Promise<ActionTemplate[]> {
-    const response = await api.get("/automations/action-templates");
-    return response.data.data;
-  }
-
-  // Helper methods para UI
-  getTriggerTypeConfig() {
-    return {
-      CONTACT_CREATED: {
-        label: "Contacto Creado",
-        color: "bg-blue-500",
-        lightColor: "bg-blue-500/20",
-        textColor: "text-blue-300",
-        icon: "UserPlus",
-      },
-      TRIP_QUOTE_REQUESTED: {
-        label: "Cotización Solicitada",
-        color: "bg-purple-500",
-        lightColor: "bg-purple-500/20",
-        textColor: "text-purple-300",
-        icon: "FileText",
-      },
-      PAYMENT_OVERDUE: {
-        label: "Pago Vencido",
-        color: "bg-red-500",
-        lightColor: "bg-red-500/20",
-        textColor: "text-red-300",
-        icon: "AlertTriangle",
-      },
-      TRIP_COMPLETED: {
-        label: "Viaje Completado",
-        color: "bg-green-500",
-        lightColor: "bg-green-500/20",
-        textColor: "text-green-300",
-        icon: "CheckCircle",
-      },
-      NO_ACTIVITY_30_DAYS: {
-        label: "Sin Actividad",
-        color: "bg-orange-500",
-        lightColor: "bg-orange-500/20",
-        textColor: "text-orange-300",
-        icon: "Clock",
-      },
-      SEASONAL_OPPORTUNITY: {
-        label: "Oportunidad Estacional",
-        color: "bg-amber-500",
-        lightColor: "bg-amber-500/20",
-        textColor: "text-amber-300",
-        icon: "Calendar",
-      },
-      BIRTHDAY: {
-        label: "Cumpleaños",
-        color: "bg-pink-500",
-        lightColor: "bg-pink-500/20",
-        textColor: "text-pink-300",
-        icon: "Gift",
-      },
-      CUSTOM: {
-        label: "Personalizado",
-        color: "bg-gray-500",
-        lightColor: "bg-gray-500/20",
-        textColor: "text-gray-300",
-        icon: "Settings",
-      },
-    };
-  }
-
-  getActionTypeConfig() {
-    return {
-      SEND_EMAIL: {
-        label: "Enviar Email",
-        color: "bg-blue-500",
-        lightColor: "bg-blue-500/20",
-        textColor: "text-blue-300",
-        icon: "Mail",
-      },
-      CREATE_TASK: {
-        label: "Crear Tarea",
-        color: "bg-green-500",
-        lightColor: "bg-green-500/20",
-        textColor: "text-green-300",
-        icon: "CheckSquare",
-      },
-      SCHEDULE_CALL: {
-        label: "Programar Llamada",
-        color: "bg-purple-500",
-        lightColor: "bg-purple-500/20",
-        textColor: "text-purple-300",
-        icon: "Phone",
-      },
-      ADD_TAG: {
-        label: "Agregar Etiqueta",
-        color: "bg-orange-500",
-        lightColor: "bg-orange-500/20",
-        textColor: "text-orange-300",
-        icon: "Tag",
-      },
-      UPDATE_STATUS: {
-        label: "Cambiar Estado",
-        color: "bg-amber-500",
-        lightColor: "bg-amber-500/20",
-        textColor: "text-amber-300",
-        icon: "ArrowRight",
-      },
-      GENERATE_QUOTE: {
-        label: "Generar Cotización",
-        color: "bg-cyan-500",
-        lightColor: "bg-cyan-500/20",
-        textColor: "text-cyan-300",
-        icon: "FileText",
-      },
-      ASSIGN_AGENT: {
-        label: "Asignar Agente",
-        color: "bg-indigo-500",
-        lightColor: "bg-indigo-500/20",
-        textColor: "text-indigo-300",
-        icon: "UserCheck",
-      },
-      SEND_WHATSAPP: {
-        label: "Enviar WhatsApp",
-        color: "bg-green-600",
-        lightColor: "bg-green-600/20",
-        textColor: "text-green-300",
-        icon: "MessageCircle",
-      },
-    };
-  }
-
-  getExecutionStatusConfig() {
-    return {
-      running: {
-        label: "Ejecutando",
-        color: "bg-blue-500",
-        textColor: "text-blue-300",
-        icon: "PlayCircle",
-      },
-      completed: {
-        label: "Completado",
-        color: "bg-green-500",
-        textColor: "text-green-300",
-        icon: "CheckCircle",
-      },
-      failed: {
-        label: "Fallido",
-        color: "bg-red-500",
-        textColor: "text-red-300",
-        icon: "XCircle",
-      },
-    };
-  }
-
-  // Validar estructura de automatización
-  validateAutomation(automation: Partial<CreateAutomationDto>): string[] {
-    const errors: string[] = [];
-
-    if (!automation.name?.trim()) {
-      errors.push("El nombre es requerido");
-    }
-
-    if (!automation.triggerType) {
-      errors.push("El tipo de trigger es requerido");
-    }
-
-    if (!automation.actions || automation.actions.length === 0) {
-      errors.push("Al menos una acción es requerida");
-    }
-
-    if (automation.actions) {
-      automation.actions.forEach((action, index) => {
-        if (!action.type) {
-          errors.push(`Acción ${index + 1}: Tipo de acción requerido`);
-        }
-        if (action.order < 1) {
-          errors.push(`Acción ${index + 1}: Orden debe ser mayor a 0`);
-        }
+    try {
+      const response = await fetch(`${this.baseUrl}/${id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data),
       });
-    }
 
-    return errors;
+      if (!response.ok) throw new Error("Failed to update automation");
+      return response.json();
+    } catch (error) {
+      console.error("Error updating automation:", error);
+      throw error;
+    }
   }
 
-  // Generar ejemplo de automatización
-  getExampleAutomations(): Partial<CreateAutomationDto>[] {
-    return [
+  // Eliminar automatización
+  async deleteAutomation(id: string): Promise<void> {
+    try {
+      const response = await fetch(`${this.baseUrl}/${id}`, {
+        method: "DELETE",
+      });
+
+      if (!response.ok) throw new Error("Failed to delete automation");
+    } catch (error) {
+      console.error("Error deleting automation:", error);
+      throw error;
+    }
+  }
+
+  // Ejecutar automatización manualmente
+  async executeAutomation(
+    params: ExecuteAutomationDto
+  ): Promise<AutomationExecution> {
+    try {
+      const response = await fetch(`${this.baseUrl}/${params.id}/execute`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ triggerData: params.triggerData }),
+      });
+
+      if (!response.ok) throw new Error("Failed to execute automation");
+      return response.json();
+    } catch (error) {
+      console.error("Error executing automation:", error);
+      throw error;
+    }
+  }
+
+  // Obtener estadísticas
+  async getAutomationStats(): Promise<AutomationStats> {
+    try {
+      const response = await fetch(`${this.baseUrl}/stats`);
+      if (!response.ok) throw new Error("Failed to fetch automation stats");
+      return response.json();
+    } catch (error) {
+      console.error("Error fetching automation stats:", error);
+      return this.getMockStats();
+    }
+  }
+
+  // Obtener historial de ejecuciones
+  async getExecutionHistory(
+    automationId?: string
+  ): Promise<AutomationExecution[]> {
+    try {
+      const url = automationId
+        ? `${this.baseUrl}/${automationId}/executions`
+        : `${this.baseUrl}/executions`;
+
+      const response = await fetch(url);
+      if (!response.ok) throw new Error("Failed to fetch execution history");
+      return response.json();
+    } catch (error) {
+      console.error("Error fetching execution history:", error);
+      return [];
+    }
+  }
+
+  // Activar/desactivar automatización
+  async toggleAutomation(id: string, isActive: boolean): Promise<Automation> {
+    return this.updateAutomation(id, { isActive });
+  }
+
+  // Mock data para desarrollo
+  private getMockAutomations(filters?: AutomationFilters): Automation[] {
+    const mockAutomations: Automation[] = [
       {
-        name: "Bienvenida a nuevos contactos",
+        id: "1",
+        name: "Bienvenida para nuevos contactos",
         description:
-          "Envía email de bienvenida cuando se crea un contacto interesado",
-        triggerType: "CONTACT_CREATED",
-        triggerConditions: {
-          status: "INTERESADO",
+          "Envía un email de bienvenida cuando se registra un nuevo contacto",
+        isActive: true,
+        trigger: {
+          type: "CONTACT_CREATED",
+          conditions: { status: "INTERESADO" },
         },
         actions: [
           {
             type: "SEND_EMAIL",
             parameters: {
               templateId: "welcome-template",
+              delay: 5, // 5 minutos después
             },
-            order: 1,
+          },
+          {
+            type: "ADD_TAG",
+            parameters: {
+              tags: ["Nuevo"],
+            },
+            delay: 10,
+          },
+        ],
+        createdAt: "2025-06-01",
+        updatedAt: "2025-06-20",
+        lastExecuted: "2025-06-24",
+        executionCount: 45,
+        successCount: 43,
+        failureCount: 2,
+      },
+      {
+        id: "2",
+        name: "Seguimiento post-cotización",
+        description:
+          "Envía seguimiento 3 días después de enviar una cotización",
+        isActive: true,
+        trigger: {
+          type: "STATUS_CHANGED",
+          conditions: { newStatus: "PASAJERO" },
+        },
+        actions: [
+          {
+            type: "SEND_EMAIL",
+            parameters: {
+              templateId: "follow-up-template",
+            },
+            delay: 4320, // 3 días en minutos
+          },
+        ],
+        createdAt: "2025-06-05",
+        updatedAt: "2025-06-15",
+        lastExecuted: "2025-06-23",
+        executionCount: 23,
+        successCount: 22,
+        failureCount: 1,
+      },
+      {
+        id: "3",
+        name: "Recordatorio de pago",
+        description: "Envía recordatorio cuando se acerca la fecha de pago",
+        isActive: false,
+        trigger: {
+          type: "DATE_REACHED",
+          conditions: { daysBeforeDue: 3 },
+        },
+        actions: [
+          {
+            type: "SEND_SMS",
+            parameters: {
+              message: "Recordatorio: Tu pago vence en 3 días",
+            },
           },
           {
             type: "CREATE_TASK",
             parameters: {
-              title: "Llamar a nuevo contacto",
-              priority: "HIGH",
-              assignedToId: "current-user",
+              title: "Seguimiento de pago",
+              assignedTo: "agent",
             },
-            delayMinutes: 1440, // 24 horas después
-            order: 2,
           },
         ],
-      },
-      {
-        name: "Seguimiento sin actividad",
-        description: "Contacta clientes sin actividad por 30 días",
-        triggerType: "NO_ACTIVITY_30_DAYS",
-        triggerConditions: {
-          days: 30,
-          status: "INTERESADO",
-        },
-        actions: [
-          {
-            type: "ADD_TAG",
-            parameters: {
-              tags: ["Sin actividad"],
-            },
-            order: 1,
-          },
-          {
-            type: "SEND_EMAIL",
-            parameters: {
-              templateId: "reactivation-template",
-            },
-            order: 2,
-          },
-        ],
-      },
-      {
-        name: "Post-viaje feedback",
-        description: "Solicita feedback después de completar un viaje",
-        triggerType: "TRIP_COMPLETED",
-        triggerConditions: {
-          daysAfterReturn: 3,
-        },
-        actions: [
-          {
-            type: "SEND_EMAIL",
-            parameters: {
-              templateId: "feedback-template",
-            },
-            order: 1,
-          },
-          {
-            type: "SCHEDULE_CALL",
-            parameters: {
-              title: "Seguimiento post-viaje",
-              duration: 15,
-            },
-            delayMinutes: 10080, // 7 días después
-            order: 2,
-          },
-        ],
+        createdAt: "2025-06-10",
+        updatedAt: "2025-06-10",
+        executionCount: 0,
+        successCount: 0,
+        failureCount: 0,
       },
     ];
+
+    if (!filters) return mockAutomations;
+
+    return mockAutomations.filter((automation) => {
+      if (
+        filters.isActive !== undefined &&
+        automation.isActive !== filters.isActive
+      ) {
+        return false;
+      }
+      if (
+        filters.triggerType &&
+        automation.trigger.type !== filters.triggerType
+      ) {
+        return false;
+      }
+      if (
+        filters.search &&
+        !automation.name.toLowerCase().includes(filters.search.toLowerCase())
+      ) {
+        return false;
+      }
+      return true;
+    });
+  }
+
+  private getMockStats(): AutomationStats {
+    return {
+      totalAutomations: 3,
+      activeAutomations: 2,
+      totalExecutions: 68,
+      successRate: 95.6,
+      executionsToday: 5,
+      executionsThisWeek: 12,
+      executionsThisMonth: 68,
+    };
   }
 }
 
