@@ -178,7 +178,7 @@ export const EmailTemplateModal: React.FC<EmailTemplateModalProps> = ({
 
   const extractVariables = (text: string): string[] => {
     const regex = /\{\{(\s*\w+\s*)\}\}/g;
-    const matches = [];
+    const matches: string[] = [];
     let match;
 
     while ((match = regex.exec(text)) !== null) {

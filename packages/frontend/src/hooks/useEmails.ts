@@ -257,3 +257,34 @@ export const useEmails = (): UseEmailsReturn => {
     refreshStats,
   };
 };
+
+// Export hook para templates specifically
+export const useEmailTemplates = () => {
+  const [templates, setTemplates] = useState<EmailTemplate[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadTemplates = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await emailService.getTemplates();
+      setTemplates(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error loading templates");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadTemplates();
+  }, []);
+
+  return {
+    data: templates,
+    isLoading: loading,
+    error,
+    refetch: loadTemplates,
+  };
+};

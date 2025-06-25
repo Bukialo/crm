@@ -1,17 +1,9 @@
 // src/components/campaigns/SegmentBuilder.tsx
 import React, { useState } from "react";
-// Removidos: Plus, Filter - no utilizados
 import { X, Users } from "lucide-react";
 import Card, { CardContent, CardHeader, CardTitle } from "../ui/Card";
 import Button from "../ui/Button";
 import Input from "../ui/Input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "../ui/select";
 
 interface SegmentCriteria {
   id: string;
@@ -20,16 +12,18 @@ interface SegmentCriteria {
   value: string;
 }
 
+// ✅ CORREGIDO: Props actualizadas para coincidir con el uso en CampaignForm
 interface SegmentBuilderProps {
-  onSegmentChange: (criteria: SegmentCriteria[]) => void;
-  initialCriteria?: SegmentCriteria[];
+  criteria: any; // Criterios actuales
+  onChange: (criteria: any) => void; // Función de cambio
+  onEstimateChange: () => void; // Función para estimar cantidad de destinatarios
 }
 
 export const SegmentBuilder: React.FC<SegmentBuilderProps> = ({
-  onSegmentChange,
-  initialCriteria = [],
+  onChange,
+  onEstimateChange,
 }) => {
-  const [criteria, setCriteria] = useState<SegmentCriteria[]>(initialCriteria);
+  const [segmentCriteria, setSegmentCriteria] = useState<SegmentCriteria[]>([]);
   const [previewCount, setPreviewCount] = useState<number>(0);
   const [isPreviewLoading, setIsPreviewLoading] = useState(false);
 
@@ -124,15 +118,35 @@ export const SegmentBuilder: React.FC<SegmentBuilderProps> = ({
       operator: "equals",
       value: "",
     };
-    const updatedCriteria = [...criteria, newCriteria];
-    setCriteria(updatedCriteria);
-    onSegmentChange(updatedCriteria);
+    const updatedCriteria = [...segmentCriteria, newCriteria];
+    setSegmentCriteria(updatedCriteria);
+
+    // Actualizar el criterio en el componente padre
+    const criteriaObject = updatedCriteria.reduce((acc, criterion) => {
+      if (criterion.value) {
+        acc[criterion.field] = criterion.value;
+      }
+      return acc;
+    }, {} as any);
+
+    onChange(criteriaObject);
+    onEstimateChange();
   };
 
   const removeCriteria = (id: string) => {
-    const updatedCriteria = criteria.filter((c) => c.id !== id);
-    setCriteria(updatedCriteria);
-    onSegmentChange(updatedCriteria);
+    const updatedCriteria = segmentCriteria.filter((c) => c.id !== id);
+    setSegmentCriteria(updatedCriteria);
+
+    // Actualizar el criterio en el componente padre
+    const criteriaObject = updatedCriteria.reduce((acc, criterion) => {
+      if (criterion.value) {
+        acc[criterion.field] = criterion.value;
+      }
+      return acc;
+    }, {} as any);
+
+    onChange(criteriaObject);
+    onEstimateChange();
   };
 
   const updateCriteria = (
@@ -140,11 +154,21 @@ export const SegmentBuilder: React.FC<SegmentBuilderProps> = ({
     field: keyof SegmentCriteria,
     value: string
   ) => {
-    const updatedCriteria = criteria.map((c) =>
+    const updatedCriteria = segmentCriteria.map((c) =>
       c.id === id ? { ...c, [field]: value } : c
     );
-    setCriteria(updatedCriteria);
-    onSegmentChange(updatedCriteria);
+    setSegmentCriteria(updatedCriteria);
+
+    // Actualizar el criterio en el componente padre
+    const criteriaObject = updatedCriteria.reduce((acc, criterion) => {
+      if (criterion.value) {
+        acc[criterion.field] = criterion.value;
+      }
+      return acc;
+    }, {} as any);
+
+    onChange(criteriaObject);
+    onEstimateChange();
   };
 
   const previewSegment = async () => {
@@ -161,27 +185,26 @@ export const SegmentBuilder: React.FC<SegmentBuilderProps> = ({
     }
   };
 
-  const renderValueInput = (criteria: SegmentCriteria) => {
-    const fieldType = getFieldType(criteria.field);
-    const fieldOptions = getFieldOptions(criteria.field);
+  const renderValueInput = (criterion: SegmentCriteria) => {
+    const fieldType = getFieldType(criterion.field);
+    const fieldOptions = getFieldOptions(criterion.field);
 
     if (fieldType === "select" && fieldOptions.length > 0) {
       return (
-        <Select
-          value={criteria.value}
-          onValueChange={(value) => updateCriteria(criteria.id, "value", value)}
+        <select
+          value={criterion.value}
+          onChange={(e) =>
+            updateCriteria(criterion.id, "value", e.target.value)
+          }
+          className="input-glass w-full"
         >
-          <SelectTrigger>
-            <SelectValue placeholder="Seleccionar valor" />
-          </SelectTrigger>
-          <SelectContent>
-            {fieldOptions.map((option) => (
-              <SelectItem key={option.value} value={option.value}>
-                {option.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+          <option value="">Seleccionar valor</option>
+          {fieldOptions.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
       );
     }
 
@@ -189,8 +212,10 @@ export const SegmentBuilder: React.FC<SegmentBuilderProps> = ({
       return (
         <Input
           type="date"
-          value={criteria.value}
-          onChange={(e) => updateCriteria(criteria.id, "value", e.target.value)}
+          value={criterion.value}
+          onChange={(e) =>
+            updateCriteria(criterion.id, "value", e.target.value)
+          }
         />
       );
     }
@@ -198,8 +223,8 @@ export const SegmentBuilder: React.FC<SegmentBuilderProps> = ({
     return (
       <Input
         type="text"
-        value={criteria.value}
-        onChange={(e) => updateCriteria(criteria.id, "value", e.target.value)}
+        value={criterion.value}
+        onChange={(e) => updateCriteria(criterion.id, "value", e.target.value)}
         placeholder="Ingresa el valor"
       />
     );
@@ -216,61 +241,51 @@ export const SegmentBuilder: React.FC<SegmentBuilderProps> = ({
       <CardContent>
         <div className="space-y-4">
           {/* Criteria List */}
-          {criteria.map((criterion, index) => (
+          {segmentCriteria.map((criterion, index) => (
             <div
               key={criterion.id}
-              className="flex items-center gap-3 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg"
+              className="flex items-center gap-3 p-4 glass rounded-lg"
             >
               {index > 0 && (
-                <div className="text-sm font-medium text-purple-600 dark:text-purple-400">
-                  Y
-                </div>
+                <div className="text-sm font-medium text-purple-400">Y</div>
               )}
 
               {/* Field Selection */}
               <div className="flex-1">
-                <Select
+                <select
                   value={criterion.field}
-                  onValueChange={(value) =>
-                    updateCriteria(criterion.id, "field", value)
+                  onChange={(e) =>
+                    updateCriteria(criterion.id, "field", e.target.value)
                   }
+                  className="input-glass w-full"
                 >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {fieldOptions.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  {fieldOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               {/* Operator Selection */}
               <div className="flex-1">
-                <Select
+                <select
                   value={criterion.operator}
-                  onValueChange={(value) =>
-                    updateCriteria(criterion.id, "operator", value)
+                  onChange={(e) =>
+                    updateCriteria(criterion.id, "operator", e.target.value)
                   }
+                  className="input-glass w-full"
                 >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {operatorOptions[
-                      getFieldType(
-                        criterion.field
-                      ) as keyof typeof operatorOptions
-                    ]?.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  {operatorOptions[
+                    getFieldType(
+                      criterion.field
+                    ) as keyof typeof operatorOptions
+                  ]?.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               {/* Value Input */}
@@ -278,7 +293,7 @@ export const SegmentBuilder: React.FC<SegmentBuilderProps> = ({
 
               {/* Remove Button */}
               <Button
-                variant="ghost"
+                variant="glass"
                 size="sm"
                 onClick={() => removeCriteria(criterion.id)}
                 leftIcon={<X className="w-4 h-4" />}
@@ -290,13 +305,13 @@ export const SegmentBuilder: React.FC<SegmentBuilderProps> = ({
 
           {/* Add Criteria Button */}
           <div className="flex items-center gap-3">
-            <Button variant="outline" onClick={addCriteria}>
+            <Button variant="glass" onClick={addCriteria}>
               Agregar Criterio
             </Button>
 
-            {criteria.length > 0 && (
+            {segmentCriteria.length > 0 && (
               <Button
-                variant="outline"
+                variant="glass"
                 onClick={previewSegment}
                 disabled={isPreviewLoading}
               >
@@ -307,10 +322,10 @@ export const SegmentBuilder: React.FC<SegmentBuilderProps> = ({
 
           {/* Preview Results */}
           {previewCount > 0 && (
-            <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+            <div className="p-4 bg-blue-500/10 border border-blue-500/30 rounded-lg">
               <div className="flex items-center gap-2">
-                <Users className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                <span className="font-medium text-blue-900 dark:text-blue-100">
+                <Users className="w-5 h-5 text-blue-400" />
+                <span className="font-medium text-blue-300">
                   Este segmento incluye {previewCount.toLocaleString()}{" "}
                   contactos
                 </span>
@@ -319,13 +334,13 @@ export const SegmentBuilder: React.FC<SegmentBuilderProps> = ({
           )}
 
           {/* Empty State */}
-          {criteria.length === 0 && (
+          {segmentCriteria.length === 0 && (
             <div className="text-center py-8">
-              <Users className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+              <Users className="w-12 h-12 text-white/20 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-white mb-2">
                 Crea tu primer segmento
               </h3>
-              <p className="text-gray-600 dark:text-gray-400 mb-4">
+              <p className="text-white/60 mb-4">
                 Agrega criterios para segmentar tu audiencia
               </p>
               <Button onClick={addCriteria}>Agregar Primer Criterio</Button>

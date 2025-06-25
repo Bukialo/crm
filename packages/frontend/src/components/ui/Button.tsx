@@ -10,7 +10,8 @@ export interface ButtonProps {
     | "destructive"
     | "secondary"
     | "glass"
-    | "primary";
+    | "primary"
+    | "danger"; // ✅ Agregada variant danger
   size?: "sm" | "md" | "lg";
   className?: string;
   onClick?: (e: React.MouseEvent<HTMLButtonElement>) => void;
@@ -18,6 +19,7 @@ export interface ButtonProps {
   type?: "button" | "submit" | "reset";
   isLoading?: boolean;
   leftIcon?: React.ReactNode;
+  rightIcon?: React.ReactNode; // ✅ Agregada prop rightIcon
   title?: string;
 }
 
@@ -31,6 +33,7 @@ const Button: React.FC<ButtonProps> = ({
   type = "button",
   isLoading = false,
   leftIcon,
+  rightIcon, // ✅ Agregada prop rightIcon
   title,
 }) => {
   const baseClasses =
@@ -44,6 +47,7 @@ const Button: React.FC<ButtonProps> = ({
     ghost:
       "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 focus:ring-purple-500",
     destructive: "bg-red-600 text-white hover:bg-red-700 focus:ring-red-500",
+    danger: "bg-red-600 text-white hover:bg-red-700 focus:ring-red-500", // ✅ Agregada variant danger
     secondary:
       "bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 hover:bg-gray-300 dark:hover:bg-gray-600 focus:ring-gray-500",
     glass:
@@ -70,7 +74,10 @@ const Button: React.FC<ButtonProps> = ({
       ) : leftIcon ? (
         <span className="mr-2">{leftIcon}</span>
       ) : null}
+
       {children}
+
+      {rightIcon && !isLoading && <span className="ml-2">{rightIcon}</span>}
     </button>
   );
 };

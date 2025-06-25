@@ -19,7 +19,6 @@ export interface Campaign {
 export interface CreateCampaignData {
   name: string;
   type: Campaign["type"];
-  status: Campaign["status"];
   recipients: number;
   subject?: string;
   scheduledDate?: string;
@@ -27,7 +26,7 @@ export interface CreateCampaignData {
 
 export interface UseCampaignsReturn {
   campaigns: Campaign[];
-  isLoading: boolean; // Cambiado de loading a isLoading
+  isLoading: boolean;
   error: string | null;
   createCampaign: (data: CreateCampaignData) => Promise<Campaign>;
   updateCampaign: (id: string, data: Partial<Campaign>) => Promise<Campaign>;
@@ -38,7 +37,7 @@ export interface UseCampaignsReturn {
 
 export const useCampaigns = (): UseCampaignsReturn => {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
-  const [isLoading, setIsLoading] = useState(false); // Cambiado de loading a isLoading
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Mock data para desarrollo
@@ -124,7 +123,7 @@ export const useCampaigns = (): UseCampaignsReturn => {
         id: Math.random().toString(36).substr(2, 9),
         name: data.name,
         type: data.type,
-        status: data.status,
+        status: "DRAFT",
         subject: data.subject,
         recipients: data.recipients,
         scheduledDate: data.scheduledDate,
@@ -223,7 +222,7 @@ export const useCampaigns = (): UseCampaignsReturn => {
 
   return {
     campaigns,
-    isLoading, // Cambiado de loading a isLoading
+    isLoading,
     error,
     createCampaign,
     updateCampaign,

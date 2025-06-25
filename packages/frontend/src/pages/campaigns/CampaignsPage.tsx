@@ -8,7 +8,6 @@ import {
   Calendar,
   TrendingUp,
   Plus,
-  Filter,
   Search,
   MoreVertical,
   Play,
@@ -17,11 +16,7 @@ import {
   Trash2,
   Eye,
 } from "lucide-react";
-import {
-  Card,
-  CardContent,
-  // Removido: CardHeader, CardTitle - no utilizados
-} from "../../components/ui/Card";
+import { Card, CardContent } from "../../components/ui/Card";
 import { Badge } from "../../components/ui/badge";
 import Button from "../../components/ui/Button";
 import Input from "../../components/ui/Input";
@@ -54,16 +49,10 @@ interface Campaign {
 }
 
 export const CampaignsPage: React.FC = () => {
-  const {
-    campaigns,
-    isLoading, // Corregido: usar isLoading en lugar de loading
-    createCampaign,
-    // Removido: updateCampaignStatus - no utilizado
-    deleteCampaign,
-  } = useCampaigns();
+  const { campaigns, isLoading, createCampaign, deleteCampaign } =
+    useCampaigns();
 
   const { currentPage, pageSize, setPage } = usePagination({
-    // Removido: filters, setFilters - no utilizados
     initialPage: 1,
     initialPageSize: 10,
   });
@@ -100,21 +89,6 @@ export const CampaignsPage: React.FC = () => {
       .length,
     draft: campaigns.filter((c: Campaign) => c.status === "DRAFT").length,
   };
-
-  // Estadísticas por tipo - removido typeStats no utilizado
-  // const typeStats = {
-  //   EMAIL: campaigns.filter((c: Campaign) => c.type === "EMAIL").length,
-  //   SMS: campaigns.filter((c: Campaign) => c.type === "SMS").length,
-  //   WHATSAPP: campaigns.filter((c: Campaign) => c.type === "WHATSAPP").length,
-  // };
-
-  // Estadísticas por estado - removido statusStats no utilizado
-  // const statusStats = {
-  //   DRAFT: campaigns.filter((c: Campaign) => c.status === "DRAFT").length,
-  //   SCHEDULED: campaigns.filter((c: Campaign) => c.status === "SCHEDULED").length,
-  //   SENT: campaigns.filter((c: Campaign) => c.status === "SENT").length,
-  //   SENDING: campaigns.filter((c: Campaign) => c.status === "SENDING").length,
-  // };
 
   const getStatusColor = (status: Campaign["status"]) => {
     switch (status) {
@@ -177,7 +151,6 @@ export const CampaignsPage: React.FC = () => {
       await createCampaign({
         name: "Nueva Campaña",
         type: "EMAIL",
-        // Removido: status - no existe en CreateCampaignDto
         recipients: 0,
       });
     } catch (error) {
@@ -196,7 +169,6 @@ export const CampaignsPage: React.FC = () => {
   };
 
   if (isLoading) {
-    // Corregido: usar isLoading
     return (
       <div className="flex items-center justify-center h-64">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>

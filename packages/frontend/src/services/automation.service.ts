@@ -1,5 +1,3 @@
-// src/services/automation.service.ts
-
 export type AutomationTriggerType =
   | "CONTACT_CREATED"
   | "TRIP_BOOKED"
@@ -7,7 +5,14 @@ export type AutomationTriggerType =
   | "EMAIL_OPENED"
   | "FORM_SUBMITTED"
   | "DATE_REACHED"
-  | "STATUS_CHANGED";
+  | "STATUS_CHANGED"
+  | "TRIP_QUOTE_REQUESTED"
+  | "PAYMENT_OVERDUE"
+  | "TRIP_COMPLETED"
+  | "NO_ACTIVITY_30_DAYS"
+  | "SEASONAL_OPPORTUNITY"
+  | "BIRTHDAY"
+  | "CUSTOM";
 
 export type AutomationActionType =
   | "SEND_EMAIL"
@@ -18,7 +23,10 @@ export type AutomationActionType =
   | "ADD_TAG"
   | "REMOVE_TAG"
   | "ASSIGN_AGENT"
-  | "CHANGE_STATUS";
+  | "CHANGE_STATUS"
+  | "SCHEDULE_CALL"
+  | "UPDATE_STATUS"
+  | "GENERATE_QUOTE";
 
 export interface AutomationTrigger {
   type: AutomationTriggerType;
@@ -27,9 +35,11 @@ export interface AutomationTrigger {
 }
 
 export interface AutomationAction {
+  id: string;
   type: AutomationActionType;
   parameters: Record<string, any>;
-  delay?: number; // en minutos
+  delayMinutes?: number; // en minutos
+  order: number;
 }
 
 export interface Automation {
@@ -37,8 +47,18 @@ export interface Automation {
   name: string;
   description?: string;
   isActive: boolean;
+
+  // Campos planos para compatibilidad
+  triggerType: AutomationTriggerType;
+  triggerConditions: Record<string, any>;
+
+  // También mantenemos el objeto trigger para mayor flexibilidad
   trigger: AutomationTrigger;
   actions: AutomationAction[];
+
+  // Ejecuciones
+  executions?: AutomationExecution[];
+
   createdAt: Date | string;
   updatedAt: Date | string;
   lastExecuted?: Date | string;
@@ -57,6 +77,7 @@ export interface AutomationExecution {
   executionLog: string[];
   error?: string;
 }
+
 export interface AutomationStats {
   totalAutomations: number;
   activeAutomations: number;
@@ -71,6 +92,8 @@ export interface AutomationFilters {
   isActive?: boolean;
   triggerType?: AutomationTriggerType;
   search?: string;
+  page?: number;
+  pageSize?: number;
 }
 
 export interface CreateAutomationDto {
@@ -86,6 +109,36 @@ export interface UpdateAutomationDto extends Partial<CreateAutomationDto> {}
 export interface ExecuteAutomationDto {
   id: string;
   triggerData: Record<string, any>;
+}
+
+// Interfaces para templates
+export interface TriggerTemplate {
+  type: AutomationTriggerType;
+  name: string;
+  description: string;
+  icon: string;
+  conditions: Array<{
+    field: string;
+    label: string;
+    type: "text" | "number" | "select" | "date" | "array";
+    required: boolean;
+    options?: string[];
+    default?: any;
+  }>;
+}
+
+export interface ActionTemplate {
+  type: AutomationActionType;
+  name: string;
+  description: string;
+  icon: string;
+  fields: Array<{
+    name: string;
+    label: string;
+    type: "text" | "textarea" | "number" | "select" | "boolean";
+    required: boolean;
+    options?: string[];
+  }>;
 }
 
 class AutomationService {
@@ -225,6 +278,95 @@ class AutomationService {
     return this.updateAutomation(id, { isActive });
   }
 
+  // Obtener configuración de tipos de trigger
+  getTriggerTypeConfig(): Record<
+    AutomationTriggerType,
+    { label: string; lightColor: string; textColor: string }
+  > {
+    return {
+      CONTACT_CREATED: {
+        label: "Contacto Creado",
+        lightColor: "bg-blue-500/20",
+        textColor: "text-blue-400",
+      },
+      TRIP_BOOKED: {
+        label: "Viaje Reservado",
+        lightColor: "bg-green-500/20",
+        textColor: "text-green-400",
+      },
+      PAYMENT_RECEIVED: {
+        label: "Pago Recibido",
+        lightColor: "bg-green-500/20",
+        textColor: "text-green-400",
+      },
+      EMAIL_OPENED: {
+        label: "Email Abierto",
+        lightColor: "bg-purple-500/20",
+        textColor: "text-purple-400",
+      },
+      FORM_SUBMITTED: {
+        label: "Formulario Enviado",
+        lightColor: "bg-orange-500/20",
+        textColor: "text-orange-400",
+      },
+      DATE_REACHED: {
+        label: "Fecha Alcanzada",
+        lightColor: "bg-red-500/20",
+        textColor: "text-red-400",
+      },
+      STATUS_CHANGED: {
+        label: "Estado Cambiado",
+        lightColor: "bg-amber-500/20",
+        textColor: "text-amber-400",
+      },
+      TRIP_QUOTE_REQUESTED: {
+        label: "Cotización Solicitada",
+        lightColor: "bg-indigo-500/20",
+        textColor: "text-indigo-400",
+      },
+      PAYMENT_OVERDUE: {
+        label: "Pago Vencido",
+        lightColor: "bg-red-500/20",
+        textColor: "text-red-400",
+      },
+      TRIP_COMPLETED: {
+        label: "Viaje Completado",
+        lightColor: "bg-green-500/20",
+        textColor: "text-green-400",
+      },
+      NO_ACTIVITY_30_DAYS: {
+        label: "Sin Actividad 30 Días",
+        lightColor: "bg-gray-500/20",
+        textColor: "text-gray-400",
+      },
+      SEASONAL_OPPORTUNITY: {
+        label: "Oportunidad Estacional",
+        lightColor: "bg-pink-500/20",
+        textColor: "text-pink-400",
+      },
+      BIRTHDAY: {
+        label: "Cumpleaños",
+        lightColor: "bg-yellow-500/20",
+        textColor: "text-yellow-400",
+      },
+      CUSTOM: {
+        label: "Personalizado",
+        lightColor: "bg-gray-500/20",
+        textColor: "text-gray-400",
+      },
+    };
+  }
+
+  // Obtener configuración de estados de ejecución
+  getExecutionStatusConfig(): Record<string, { label: string }> {
+    return {
+      PENDING: { label: "Pendiente" },
+      RUNNING: { label: "Ejecutando" },
+      COMPLETED: { label: "Completado" },
+      FAILED: { label: "Fallido" },
+    };
+  }
+
   // Mock data para desarrollo
   private getMockAutomations(filters?: AutomationFilters): Automation[] {
     const mockAutomations: Automation[] = [
@@ -234,24 +376,41 @@ class AutomationService {
         description:
           "Envía un email de bienvenida cuando se registra un nuevo contacto",
         isActive: true,
+        triggerType: "CONTACT_CREATED",
+        triggerConditions: { status: "INTERESADO" },
         trigger: {
           type: "CONTACT_CREATED",
           conditions: { status: "INTERESADO" },
         },
         actions: [
           {
+            id: "action_1",
             type: "SEND_EMAIL",
             parameters: {
               templateId: "welcome-template",
-              delay: 5, // 5 minutos después
             },
+            delayMinutes: 5,
+            order: 0,
           },
           {
+            id: "action_2",
             type: "ADD_TAG",
             parameters: {
               tags: ["Nuevo"],
             },
-            delay: 10,
+            delayMinutes: 10,
+            order: 1,
+          },
+        ],
+        executions: [
+          {
+            id: "exec_1",
+            automationId: "1",
+            triggeredAt: "2025-06-24T10:00:00Z",
+            completedAt: "2025-06-24T10:01:00Z",
+            status: "COMPLETED",
+            triggerData: { contactId: "contact_123" },
+            executionLog: ["Email sent successfully"],
           },
         ],
         createdAt: "2025-06-01",
@@ -267,55 +426,30 @@ class AutomationService {
         description:
           "Envía seguimiento 3 días después de enviar una cotización",
         isActive: true,
+        triggerType: "STATUS_CHANGED",
+        triggerConditions: { newStatus: "PASAJERO" },
         trigger: {
           type: "STATUS_CHANGED",
           conditions: { newStatus: "PASAJERO" },
         },
         actions: [
           {
+            id: "action_3",
             type: "SEND_EMAIL",
             parameters: {
               templateId: "follow-up-template",
             },
-            delay: 4320, // 3 días en minutos
+            delayMinutes: 4320, // 3 días
+            order: 0,
           },
         ],
+        executions: [],
         createdAt: "2025-06-05",
         updatedAt: "2025-06-15",
         lastExecuted: "2025-06-23",
         executionCount: 23,
         successCount: 22,
         failureCount: 1,
-      },
-      {
-        id: "3",
-        name: "Recordatorio de pago",
-        description: "Envía recordatorio cuando se acerca la fecha de pago",
-        isActive: false,
-        trigger: {
-          type: "DATE_REACHED",
-          conditions: { daysBeforeDue: 3 },
-        },
-        actions: [
-          {
-            type: "SEND_SMS",
-            parameters: {
-              message: "Recordatorio: Tu pago vence en 3 días",
-            },
-          },
-          {
-            type: "CREATE_TASK",
-            parameters: {
-              title: "Seguimiento de pago",
-              assignedTo: "agent",
-            },
-          },
-        ],
-        createdAt: "2025-06-10",
-        updatedAt: "2025-06-10",
-        executionCount: 0,
-        successCount: 0,
-        failureCount: 0,
       },
     ];
 
@@ -330,7 +464,7 @@ class AutomationService {
       }
       if (
         filters.triggerType &&
-        automation.trigger.type !== filters.triggerType
+        automation.triggerType !== filters.triggerType
       ) {
         return false;
       }

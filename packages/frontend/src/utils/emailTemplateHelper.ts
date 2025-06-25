@@ -392,7 +392,7 @@ export class EmailTemplateHelper {
 
       const inlineStyles = classes
         .split(" ")
-        .map((cls) => classMap[cls] || "")
+        .map((cls: string) => classMap[cls] || "")
         .filter(Boolean)
         .join(" ");
 

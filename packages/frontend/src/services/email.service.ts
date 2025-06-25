@@ -238,22 +238,44 @@ class EmailService {
   ): string {
     let result = template;
 
-    // Variables básicas del contacto
-    const variables = {
+    // Preparar variables del contacto
+    const contactVariables = {
       firstName: contact.firstName,
       lastName: contact.lastName,
       fullName: `${contact.firstName} ${contact.lastName}`,
       email: contact.email,
       phone: contact.phone || "",
       status: contact.status,
+      createdAt: contact.createdAt
+        ? new Date(contact.createdAt).toLocaleDateString()
+        : "",
+    };
+
+    // Variables de la empresa (valores por defecto)
+    const companyVariables = {
+      companyName: "Bukialo Travel",
+      companyPhone: "(123) 456-7890",
+      companyEmail: "info@bukialo.com",
+      companyAddress: "Av. Principal 123, Ciudad",
+      websiteUrl: "https://bukialo.com",
+      unsubscribeUrl: "#",
+    };
+
+    // Combinar todas las variables
+    const allVariables = {
+      ...contactVariables,
+      ...companyVariables,
       ...customData, // Variables adicionales
     };
 
     // Reemplazar variables en formato {{variable}}
-    Object.entries(variables).forEach(([key, value]) => {
+    Object.entries(allVariables).forEach(([key, value]) => {
       const regex = new RegExp(`{{\\s*${key}\\s*}}`, "g");
       result = result.replace(regex, String(value || ""));
     });
+
+    // Limpiar variables no reemplazadas (opcional)
+    result = result.replace(/{{[^}]+}}/g, "");
 
     return result;
   }
@@ -313,8 +335,7 @@ class EmailService {
                 <p style="margin: 5px 0;"><strong>Destino:</strong> {{destination}}</p>
                 <p style="margin: 5px 0;"><strong>Fechas:</strong> {{departureDate}} - {{returnDate}}</p>
                 <p style="margin: 5px 0;"><strong>Viajeros:</strong> {{travelers}} personas</p>
-                <!-- Corregido: Sintaxis correcta sin espacios extra -->
-                <p style="margin: 5px 0;"><strong>Precio total:</strong> ${{ totalPrice }}</p>
+                <p style="margin: 5px 0;"><strong>Precio total:</strong> ${{totalPrice}}</p>
               </div>
               
               <p style="font-size: 16px; line-height: 1.6; color: #333;">

@@ -1,315 +1,363 @@
-import { useState, useRef, useEffect } from "react";
-import {
-  Bold,
-  Italic,
-  Underline,
-  Link,
-  Image,
-  Type,
-  Eye,
-  Save,
-  X,
-} from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { Save, Eye, Sparkles, X } from "lucide-react";
 import { EmailTemplate } from "../../services/email.service";
+import { EmailTemplateHelper } from "../../utils/emailTemplateHelper";
+import Card, { CardContent, CardHeader, CardTitle } from "../ui/Card";
 import Button from "../ui/Button";
 import Input from "../ui/Input";
-import Card from "../ui/Card";
-import { clsx } from "clsx";
 
 interface EmailEditorProps {
   template?: EmailTemplate | null;
-  onSave: (template: Partial<EmailTemplate>) => void;
+  onSave: (template: Partial<EmailTemplate>) => Promise<void>;
   onCancel: () => void;
-  onPreview: (content: string) => void;
+  isLoading?: boolean;
 }
 
-const categories = [
-  { value: "welcome", label: "Bienvenida" },
-  { value: "quote", label: "Cotización" },
-  { value: "follow_up", label: "Seguimiento" },
-  { value: "seasonal", label: "Temporada" },
-  { value: "post_trip", label: "Post-viaje" },
-  { value: "custom", label: "Personalizado" },
-];
-
-export const EmailEditor = ({
+export const EmailEditor: React.FC<EmailEditorProps> = ({
   template,
   onSave,
   onCancel,
-  onPreview,
-}: EmailEditorProps) => {
-  const [name, setName] = useState(template?.name || "");
-  const [subject, setSubject] = useState(template?.subject || "");
-  const [category, setCategory] = useState(template?.category || "welcome");
-  const [htmlContent, setHtmlContent] = useState(template?.htmlContent || "");
-  const [variables, setVariables] = useState(template?.variables || []);
-  const [showVariables, setShowVariables] = useState(false);
+  isLoading = false,
+}) => {
+  const [formData, setFormData] = useState({
+    name: "",
+    subject: "",
+    htmlContent: "",
+    category: "WELCOME" as const,
+  });
 
-  const editorRef = useRef<HTMLDivElement>(null);
+  const [showPreview, setShowPreview] = useState(false);
+  const [availableVariables, setAvailableVariables] = useState<any[]>([]);
 
-  const formatText = (command: string, value?: string) => {
-    document.execCommand(command, false, value);
-    if (editorRef.current) {
-      setHtmlContent(editorRef.current.innerHTML);
+  useEffect(() => {
+    if (template) {
+      setFormData({
+        name: template.name,
+        subject: template.subject,
+        htmlContent: template.htmlContent,
+        category: template.category,
+      });
     }
-  };
 
-  const insertVariable = (variableName: string) => {
-    const selection = window.getSelection();
-    if (selection && selection.rangeCount > 0) {
-      const range = selection.getRangeAt(0);
-      const span = document.createElement("span");
-      span.className =
-        "bg-primary-500/20 text-primary-300 px-2 py-1 rounded text-sm";
-      span.textContent = `{{${variableName}}}`;
-      span.contentEditable = "false";
+    // Load available variables
+    const variables = EmailTemplateHelper.getAllVariables();
+    setAvailableVariables(variables);
+  }, [template]);
 
-      range.deleteContents();
-      range.insertNode(span);
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
 
-      // Update content
-      if (editorRef.current) {
-        setHtmlContent(editorRef.current.innerHTML);
-      }
-    }
-  };
-
-  const addVariable = () => {
-    const name = prompt("Nombre de la variable:");
-    if (name && !variables.find((v) => v.name === name)) {
-      const newVariable = {
-        name,
-        type: "text" as const,
-        required: false,
-      };
-      setVariables([...variables, newVariable]);
-    }
-  };
-
-  const removeVariable = (index: number) => {
-    setVariables(variables.filter((_, i) => i !== index));
-  };
-
-  const handleSave = () => {
     const templateData: Partial<EmailTemplate> = {
-      name,
-      subject,
-      category: category as any,
-      htmlContent,
-      variables,
-      isActive: true,
+      name: formData.name,
+      subject: formData.subject,
+      htmlContent: formData.htmlContent,
+      category: formData.category,
+      variables: EmailTemplateHelper.extractVariables(
+        formData.subject + " " + formData.htmlContent
+      ),
+      updatedAt: new Date(),
+      ...(template ? {} : { createdAt: new Date() }),
     };
 
-    onSave(templateData);
+    await onSave(templateData);
+  };
+
+  const insertVariable = (variable: string) => {
+    const textarea = document.getElementById(
+      "htmlContent"
+    ) as HTMLTextAreaElement;
+    if (textarea) {
+      const start = textarea.selectionStart;
+      const end = textarea.selectionEnd;
+      const text = formData.htmlContent;
+      const before = text.substring(0, start);
+      const after = text.substring(end, text.length);
+      const newText = before + `{{${variable}}}` + after;
+
+      setFormData((prev) => ({ ...prev, htmlContent: newText }));
+
+      // Set cursor position after the inserted variable
+      setTimeout(() => {
+        textarea.focus();
+        textarea.setSelectionRange(
+          start + variable.length + 4,
+          start + variable.length + 4
+        );
+      }, 0);
+    }
+  };
+
+  const getPreviewContent = () => {
+    return EmailTemplateHelper.generatePreview(formData.htmlContent);
   };
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <Card className="w-full max-w-6xl h-[90vh] overflow-hidden flex flex-col">
-        {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-white/10">
-          <h2 className="text-2xl font-bold text-white">
-            {template ? "Editar Plantilla" : "Nueva Plantilla"}
-          </h2>
-          <div className="flex gap-2">
+      <Card className="w-full max-w-6xl max-h-[90vh] overflow-hidden">
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle>
+            {template ? "Editar Template" : "Nuevo Template de Email"}
+          </CardTitle>
+          <div className="flex items-center gap-2">
             <Button
-              variant="glass"
+              variant="outline"
               size="sm"
-              onClick={() => onPreview(htmlContent)}
+              onClick={() => setShowPreview(!showPreview)}
               leftIcon={<Eye className="w-4 h-4" />}
             >
-              Vista Previa
+              {showPreview ? "Editor" : "Vista Previa"}
             </Button>
-            <Button
-              variant="primary"
-              size="sm"
-              onClick={handleSave}
-              leftIcon={<Save className="w-4 h-4" />}
-            >
-              Guardar
-            </Button>
-            <Button
-              variant="glass"
-              size="sm"
-              onClick={onCancel}
-              leftIcon={<X className="w-4 h-4" />}
-            >
-              Cancelar
+            <Button variant="ghost" size="sm" onClick={onCancel}>
+              <X className="w-4 h-4" />
             </Button>
           </div>
-        </div>
+        </CardHeader>
 
-        <div className="flex-1 flex overflow-hidden">
-          {/* Sidebar */}
-          <div className="w-80 border-r border-white/10 p-6 overflow-y-auto">
-            <div className="space-y-6">
-              {/* Template Info */}
-              <div>
-                <h3 className="text-lg font-medium text-white mb-4">
-                  Información
-                </h3>
-                <div className="space-y-4">
+        <CardContent className="overflow-y-auto max-h-[calc(90vh-120px)]">
+          {!showPreview ? (
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+                {/* Main Editor */}
+                <div className="lg:col-span-3 space-y-6">
                   <Input
-                    label="Nombre"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="Mi Plantilla"
+                    label="Nombre del Template"
+                    value={formData.name}
+                    onChange={(e) =>
+                      setFormData((prev) => ({ ...prev, name: e.target.value }))
+                    }
+                    placeholder="Ej: Bienvenida - Nuevo Lead"
+                    required
                   />
 
                   <div>
-                    <label className="block text-sm font-medium text-white/80 mb-1">
+                    <label className="block text-sm font-medium mb-2">
                       Categoría
                     </label>
                     <select
-                      value={category}
-                      onChange={(e) => setCategory(e.target.value)}
+                      value={formData.category}
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          category: e.target.value as any,
+                        }))
+                      }
                       className="input-glass w-full"
                     >
-                      {categories.map((cat) => (
-                        <option key={cat.value} value={cat.value}>
-                          {cat.label}
-                        </option>
-                      ))}
+                      <option value="WELCOME">Bienvenida</option>
+                      <option value="QUOTE">Cotización</option>
+                      <option value="FOLLOW_UP">Seguimiento</option>
+                      <option value="SEASONAL">Estacional</option>
+                      <option value="POST_TRIP">Post-Viaje</option>
                     </select>
                   </div>
 
                   <Input
-                    label="Asunto"
-                    value={subject}
-                    onChange={(e) => setSubject(e.target.value)}
-                    placeholder="{{firstName}}, tu viaje te espera"
+                    label="Asunto del Email"
+                    value={formData.subject}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        subject: e.target.value,
+                      }))
+                    }
+                    placeholder="Ej: ¡Bienvenido {{firstName}}! Tu próximo viaje te espera"
+                    required
                   />
+
+                  <div>
+                    <label className="block text-sm font-medium mb-2">
+                      Contenido HTML
+                    </label>
+                    <textarea
+                      id="htmlContent"
+                      value={formData.htmlContent}
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          htmlContent: e.target.value,
+                        }))
+                      }
+                      className="w-full h-96 input-glass resize-none font-mono text-sm"
+                      placeholder="Escribe tu template HTML aquí..."
+                      required
+                    />
+                  </div>
+                </div>
+
+                {/* Variables Sidebar */}
+                <div className="space-y-6">
+                  <div>
+                    <h3 className="text-lg font-medium mb-4">
+                      Variables Disponibles
+                    </h3>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                      Haz clic en una variable para insertarla en el contenido
+                    </p>
+
+                    <div className="space-y-4">
+                      <div>
+                        <h4 className="text-sm font-medium mb-2">Contacto</h4>
+                        <div className="grid grid-cols-1 gap-1">
+                          {EmailTemplateHelper.getContactVariables().map(
+                            (v) => (
+                              <button
+                                key={v.key}
+                                type="button"
+                                onClick={() => insertVariable(v.key)}
+                                className="text-left px-2 py-1 text-xs bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 rounded hover:bg-blue-200 dark:hover:bg-blue-900/30 transition-colors"
+                              >
+                                {v.key}
+                              </button>
+                            )
+                          )}
+                        </div>
+                      </div>
+
+                      <div>
+                        <h4 className="text-sm font-medium mb-2">Viaje</h4>
+                        <div className="grid grid-cols-1 gap-1">
+                          {EmailTemplateHelper.getTripVariables().map((v) => (
+                            <button
+                              key={v.key}
+                              type="button"
+                              onClick={() => insertVariable(v.key)}
+                              className="text-left px-2 py-1 text-xs bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-300 rounded hover:bg-green-200 dark:hover:bg-green-900/30 transition-colors"
+                            >
+                              {v.key}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div>
+                        <h4 className="text-sm font-medium mb-2">
+                          Promociones
+                        </h4>
+                        <div className="grid grid-cols-1 gap-1">
+                          {EmailTemplateHelper.getPromotionVariables().map(
+                            (v) => (
+                              <button
+                                key={v.key}
+                                type="button"
+                                onClick={() => insertVariable(v.key)}
+                                className="text-left px-2 py-1 text-xs bg-orange-100 dark:bg-orange-900/20 text-orange-700 dark:text-orange-300 rounded hover:bg-orange-200 dark:hover:bg-orange-900/30 transition-colors"
+                              >
+                                {v.key}
+                              </button>
+                            )
+                          )}
+                        </div>
+                      </div>
+
+                      <div>
+                        <h4 className="text-sm font-medium mb-2">Empresa</h4>
+                        <div className="grid grid-cols-1 gap-1">
+                          {EmailTemplateHelper.getCompanyVariables().map(
+                            (v) => (
+                              <button
+                                key={v.key}
+                                type="button"
+                                onClick={() => insertVariable(v.key)}
+                                className="text-left px-2 py-1 text-xs bg-purple-100 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 rounded hover:bg-purple-200 dark:hover:bg-purple-900/30 transition-colors"
+                              >
+                                {v.key}
+                              </button>
+                            )
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Sparkles className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                      <span className="text-sm font-medium text-blue-900 dark:text-blue-100">
+                        Consejo
+                      </span>
+                    </div>
+                    <p className="text-xs text-blue-700 dark:text-blue-300">
+                      Usa variables como {`{{firstName}}`} para personalizar
+                      automáticamente el contenido para cada destinatario.
+                    </p>
+                  </div>
                 </div>
               </div>
 
-              {/* Variables */}
-              <div>
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-medium text-white">Variables</h3>
+              <div className="flex justify-between pt-6 border-t border-gray-200 dark:border-gray-700">
+                <Button type="button" variant="ghost" onClick={onCancel}>
+                  Cancelar
+                </Button>
+
+                <div className="flex gap-3">
                   <Button
-                    size="sm"
-                    variant="glass"
-                    onClick={() => setShowVariables(!showVariables)}
+                    type="button"
+                    variant="outline"
+                    onClick={() => setShowPreview(true)}
+                    leftIcon={<Eye className="w-4 h-4" />}
                   >
-                    {showVariables ? "Ocultar" : "Mostrar"}
+                    Vista Previa
+                  </Button>
+
+                  <Button
+                    type="submit"
+                    variant="primary"
+                    isLoading={isLoading}
+                    leftIcon={<Save className="w-4 h-4" />}
+                  >
+                    {template ? "Actualizar" : "Guardar"} Template
                   </Button>
                 </div>
+              </div>
+            </form>
+          ) : (
+            /* Preview Mode */
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-medium">
+                  Vista Previa del Template
+                </h3>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowPreview(false)}
+                  >
+                    Volver al Editor
+                  </Button>
+                </div>
+              </div>
 
-                {showVariables && (
-                  <div className="space-y-3">
-                    {variables.map((variable, index) => (
-                      <div
-                        key={index}
-                        className="flex items-center gap-2 p-2 glass rounded"
-                      >
-                        <span
-                          className="flex-1 cursor-pointer text-sm text-white/80"
-                          onClick={() => insertVariable(variable.name)}
-                        >
-                          {variable.name}
-                        </span>
-                        <button
-                          onClick={() => removeVariable(index)}
-                          className="text-red-400 hover:text-red-300"
-                        >
-                          <X className="w-4 h-4" />
-                        </button>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Email Preview */}
+                <div>
+                  <h4 className="text-sm font-medium mb-2">
+                    Vista Previa del Email
+                  </h4>
+                  <div className="border border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden">
+                    <div className="bg-gray-100 dark:bg-gray-800 p-3 border-b border-gray-300 dark:border-gray-600">
+                      <div className="text-sm">
+                        <strong>Asunto:</strong>{" "}
+                        {EmailTemplateHelper.generatePreview(formData.subject)}
                       </div>
-                    ))}
-
-                    <Button
-                      size="sm"
-                      variant="glass"
-                      onClick={addVariable}
-                      className="w-full"
-                    >
-                      + Agregar Variable
-                    </Button>
+                    </div>
+                    <div
+                      className="p-4 bg-white dark:bg-gray-900 min-h-[400px] overflow-auto"
+                      dangerouslySetInnerHTML={{ __html: getPreviewContent() }}
+                    />
                   </div>
-                )}
+                </div>
+
+                {/* HTML Source */}
+                <div>
+                  <h4 className="text-sm font-medium mb-2">Código HTML</h4>
+                  <pre className="bg-gray-100 dark:bg-gray-800 p-4 rounded-lg overflow-auto text-xs max-h-[500px] border border-gray-300 dark:border-gray-600">
+                    <code>{formData.htmlContent}</code>
+                  </pre>
+                </div>
               </div>
             </div>
-          </div>
-
-          {/* Editor */}
-          <div className="flex-1 flex flex-col">
-            {/* Toolbar */}
-            <div className="p-4 border-b border-white/10">
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => formatText("bold")}
-                  className="p-2 rounded hover:bg-white/10"
-                  title="Negrita"
-                >
-                  <Bold className="w-4 h-4 text-white" />
-                </button>
-                <button
-                  onClick={() => formatText("italic")}
-                  className="p-2 rounded hover:bg-white/10"
-                  title="Cursiva"
-                >
-                  <Italic className="w-4 h-4 text-white" />
-                </button>
-                <button
-                  onClick={() => formatText("underline")}
-                  className="p-2 rounded hover:bg-white/10"
-                  title="Subrayado"
-                >
-                  <Underline className="w-4 h-4 text-white" />
-                </button>
-
-                <div className="w-px h-6 bg-white/20 mx-2" />
-
-                <button
-                  onClick={() => {
-                    const url = prompt("URL del enlace:");
-                    if (url) formatText("createLink", url);
-                  }}
-                  className="p-2 rounded hover:bg-white/10"
-                  title="Enlace"
-                >
-                  <Link className="w-4 h-4 text-white" />
-                </button>
-                <button
-                  onClick={() => {
-                    const url = prompt("URL de la imagen:");
-                    if (url) formatText("insertImage", url);
-                  }}
-                  className="p-2 rounded hover:bg-white/10"
-                  title="Imagen"
-                >
-                  <Image className="w-4 h-4 text-white" />
-                </button>
-
-                <div className="w-px h-6 bg-white/20 mx-2" />
-
-                <select
-                  onChange={(e) => formatText("fontSize", e.target.value)}
-                  className="bg-transparent text-white text-sm border border-white/20 rounded px-2 py-1"
-                >
-                  <option value="1">Pequeño</option>
-                  <option value="3">Normal</option>
-                  <option value="5">Grande</option>
-                  <option value="7">Muy Grande</option>
-                </select>
-              </div>
-            </div>
-
-            {/* Content Editor */}
-            <div className="flex-1 p-6">
-              <div
-                ref={editorRef}
-                contentEditable
-                className="w-full h-full bg-white/5 rounded-lg p-4 text-white min-h-[400px] focus:outline-none focus:ring-2 focus:ring-primary-500/50"
-                style={{ overflowY: "auto" }}
-                onInput={(e) => {
-                  setHtmlContent((e.target as HTMLDivElement).innerHTML);
-                }}
-                dangerouslySetInnerHTML={{ __html: htmlContent }}
-              />
-            </div>
-          </div>
-        </div>
+          )}
+        </CardContent>
       </Card>
     </div>
   );

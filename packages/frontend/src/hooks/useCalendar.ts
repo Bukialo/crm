@@ -65,8 +65,8 @@ export const useCalendar = ({
   const createEventMutation = useMutation({
     mutationFn: (data: CreateEventDto) => calendarService.createEvent(data),
     onSuccess: (newEvent) => {
-      queryClient.invalidateQueries(["calendar-events"]);
-      queryClient.invalidateQueries(["calendar-stats"]);
+      queryClient.invalidateQueries({ queryKey: ["calendar-events"] });
+      queryClient.invalidateQueries({ queryKey: ["calendar-stats"] });
       toast.success("Evento creado exitosamente");
       return newEvent;
     },
@@ -84,8 +84,8 @@ export const useCalendar = ({
     mutationFn: ({ id, ...data }: UpdateEventDto) =>
       calendarService.updateEvent(id, data),
     onSuccess: (updatedEvent) => {
-      queryClient.invalidateQueries(["calendar-events"]);
-      queryClient.invalidateQueries(["calendar-stats"]);
+      queryClient.invalidateQueries({ queryKey: ["calendar-events"] });
+      queryClient.invalidateQueries({ queryKey: ["calendar-stats"] });
       queryClient.setQueryData(
         ["calendar-event", updatedEvent.id],
         updatedEvent
@@ -106,9 +106,9 @@ export const useCalendar = ({
   const deleteEventMutation = useMutation({
     mutationFn: (id: string) => calendarService.deleteEvent(id),
     onSuccess: (_, id) => {
-      queryClient.invalidateQueries(["calendar-events"]);
-      queryClient.invalidateQueries(["calendar-stats"]);
-      queryClient.removeQueries(["calendar-event", id]);
+      queryClient.invalidateQueries({ queryKey: ["calendar-events"] });
+      queryClient.invalidateQueries({ queryKey: ["calendar-stats"] });
+      queryClient.removeQueries({ queryKey: ["calendar-event", id] });
       toast.success("Evento eliminado exitosamente");
     },
     onError: () => {
@@ -120,8 +120,8 @@ export const useCalendar = ({
   const generateTripEventsMutation = useMutation({
     mutationFn: (tripId: string) => calendarService.generateTripEvents(tripId),
     onSuccess: (events) => {
-      queryClient.invalidateQueries(["calendar-events"]);
-      queryClient.invalidateQueries(["calendar-stats"]);
+      queryClient.invalidateQueries({ queryKey: ["calendar-events"] });
+      queryClient.invalidateQueries({ queryKey: ["calendar-stats"] });
       toast.success(`${events.length} eventos generados para el viaje`);
       return events;
     },
@@ -144,10 +144,10 @@ export const useCalendar = ({
     refetch,
 
     // Loading states
-    isCreating: createEventMutation.isLoading,
-    isUpdating: updateEventMutation.isLoading,
-    isDeleting: deleteEventMutation.isLoading,
-    isGenerating: generateTripEventsMutation.isLoading,
+    isCreating: createEventMutation.isPending,
+    isUpdating: updateEventMutation.isPending,
+    isDeleting: deleteEventMutation.isPending,
+    isGenerating: generateTripEventsMutation.isPending,
 
     // Helper functions
     getEventsForDate: (date: Date) =>
@@ -224,8 +224,6 @@ export const useAISuggestions = (contactId?: string) => {
 
 // Hook for conflict checking
 export const useConflictCheck = () => {
-  const queryClient = useQueryClient();
-
   return useMutation({
     mutationFn: ({
       startDate,
@@ -258,8 +256,8 @@ export const useBulkCalendarOperations = () => {
     mutationFn: (events: CreateEventDto[]) =>
       calendarService.bulkCreateEvents(events),
     onSuccess: (result) => {
-      queryClient.invalidateQueries(["calendar-events"]);
-      queryClient.invalidateQueries(["calendar-stats"]);
+      queryClient.invalidateQueries({ queryKey: ["calendar-events"] });
+      queryClient.invalidateQueries({ queryKey: ["calendar-stats"] });
 
       if (result.failed > 0) {
         toast.error(
@@ -278,7 +276,7 @@ export const useBulkCalendarOperations = () => {
 
   return {
     bulkCreate: bulkCreateMutation.mutateAsync,
-    isBulkCreating: bulkCreateMutation.isLoading,
+    isBulkCreating: bulkCreateMutation.isPending,
   };
 };
 

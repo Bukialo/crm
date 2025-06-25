@@ -11,25 +11,11 @@ export const useAiChat = () => {
     isTyping,
     suggestions,
     addMessage,
-    setMessages,
     setLoading,
     setTyping,
     setSuggestions,
   } = useAiStore();
 
-  // ✅ DESHABILITAR CHAT HISTORY - CAUSA 401
-  const { data: chatHistory } = useQuery({
-    queryKey: ["ai-chat-history"],
-    queryFn: () => aiService.getChatHistory(),
-    enabled: false, // ✅ CAMBIAR A FALSE
-    onSuccess: (data) => {
-      if (messages.length === 0 && data.length > 0) {
-        setMessages(data);
-      }
-    },
-    staleTime: 5 * 60 * 1000,
-    refetchOnWindowFocus: false,
-  });
 
   // ✅ USAR SUGERENCIAS ESTÁTICAS
   if (suggestions.length === 0) {
@@ -96,22 +82,22 @@ export const useAiChat = () => {
       case "filter":
         // Implementar filtros según el contexto
         console.log("Apply filters:", action.params);
-        toast.info(`Aplicando filtros: ${action.label}`);
+        toast.success(`Aplicando filtros: ${action.label}`);
         break;
       case "create":
         // Abrir formulario de creación
         console.log("Create:", action.params);
-        toast.info(`Crear: ${action.label}`);
+        toast.success(`Crear: ${action.label}`);
         break;
       case "export":
         // Exportar datos
         console.log("Export:", action.params);
-        toast.info(`Exportando: ${action.label}`);
+        toast.success(`Exportando: ${action.label}`);
         break;
       case "update":
         // Actualizar datos
         console.log("Update:", action.params);
-        toast.info(`Actualizando: ${action.label}`);
+        toast.success(`Actualizando: ${action.label}`);
         break;
       default:
         console.log("Unknown action:", action);
@@ -147,20 +133,17 @@ export const useAiChat = () => {
   );
 
   // ✅ DESHABILITAR INSIGHTS - CAUSA 401
-  const { data: insights, isLoading: insightsLoading } = useQuery({
+  const { data: insights } = useQuery({
     queryKey: ["ai-insights"],
     queryFn: () => aiService.getInsights(),
     enabled: false, // ✅ CAMBIAR A FALSE
     refetchInterval: 5 * 60 * 1000,
     staleTime: 60 * 1000,
-    onError: (error) => {
-      console.error("Error loading insights:", error);
-    },
   });
 
   return {
     messages,
-    isLoading: sendMessageMutation.isLoading || isLoading,
+    isLoading: sendMessageMutation.isPending || isLoading,
     isTyping,
     suggestions:
       suggestions.length > 0 ? suggestions : aiService.getExampleQueries(),
@@ -170,7 +153,7 @@ export const useAiChat = () => {
     clearMessages: useAiStore.getState().clearMessages,
 
     // Estados adicionales
-    canSendMessage: !sendMessageMutation.isLoading && !isLoading,
+    canSendMessage: !sendMessageMutation.isPending && !isLoading,
     hasMessages: messages.length > 0,
   };
 };

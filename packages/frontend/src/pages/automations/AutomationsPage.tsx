@@ -2,9 +2,7 @@
 import React, { useState } from "react";
 import {
   Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
+  CardContent
 } from "../../components/ui/Card";
 import Button from "../../components/ui/Button";
 import Input from "../../components/ui/Input";
@@ -13,7 +11,6 @@ import {
   Plus,
   Play,
   Pause,
-  Settings,
   TrendingUp,
   Users,
   Clock,
@@ -83,13 +80,14 @@ export const AutomationsPage: React.FC = () => {
     const labels = {
       CONTACT_CREATED: "Contacto creado",
       TRIP_BOOKED: "Viaje reservado",
+      TRIP_QUOTE_REQUESTED: "Cotización solicitada",
       PAYMENT_RECEIVED: "Pago recibido",
       EMAIL_OPENED: "Email abierto",
       FORM_SUBMITTED: "Formulario enviado",
       DATE_REACHED: "Fecha alcanzada",
       STATUS_CHANGED: "Estado cambiado",
     };
-    return labels[type] || type;
+    return labels[type as keyof typeof labels] || type;
   };
 
   return (

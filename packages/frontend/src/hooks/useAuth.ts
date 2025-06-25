@@ -5,14 +5,13 @@ import {
   signOut,
   sendPasswordResetEmail,
   updateProfile,
-  User,
 } from "firebase/auth";
 import { auth } from "../lib/firebase";
 import api from "../lib/axios";
 import toast from "react-hot-toast";
 
 export const useAuth = () => {
-  const { user, isLoading, setUser, logout } = useAuthStore();
+  const { user, isLoading, logout } = useAuthStore();
 
   const login = async (email: string, password: string) => {
     try {
@@ -25,7 +24,7 @@ export const useAuth = () => {
       // Get user data from backend
       const { data } = await api.get("/auth/me");
 
-      setUser({
+      useAuthStore.getState().setUser({
         id: data.data.id,
         email: data.data.email,
         firstName: data.data.firstName,
@@ -41,7 +40,7 @@ export const useAuth = () => {
       if (error.code === "auth/user-not-found") {
         toast.error("Usuario no encontrado");
       } else if (error.code === "auth/wrong-password") {
-        toast.error("Contraseña incorrecta");
+        toast.error("Contraseña incorrea");
       } else if (error.code === "auth/invalid-email") {
         toast.error("Email inválido");
       } else {
@@ -78,7 +77,7 @@ export const useAuth = () => {
         firebaseUid: firebaseUser.uid,
       });
 
-      setUser({
+      useAuthStore.getState().setUser({
         id: data.data.id,
         email: data.data.email,
         firstName: data.data.firstName,

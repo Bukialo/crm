@@ -34,8 +34,7 @@ const CalendarPage = () => {
     useUpcomingEvents(7);
   const { data: todayEvents = [], isLoading: loadingToday } = useTodayEvents();
   const { data: stats, isLoading: loadingStats } = useCalendarStats();
-  const { getEventTypeLabel, isEventUpcoming, isEventToday } =
-    useCalendarHelpers();
+  const { getEventTypeLabel } = useCalendarHelpers();
 
   return (
     <div className="space-y-6">

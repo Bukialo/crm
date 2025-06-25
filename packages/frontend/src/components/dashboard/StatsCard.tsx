@@ -10,6 +10,7 @@ interface StatsCardProps {
   icon: LucideIcon;
   iconColor: string;
   trend?: "up" | "down" | "neutral";
+  changeType?: "positive" | "negative" | "neutral";
 }
 
 export const StatsCard = ({
@@ -17,9 +18,10 @@ export const StatsCard = ({
   value,
   change,
   changeLabel = "vs mes anterior",
-  icon,
+  icon: Icon,
   iconColor,
   trend,
+  changeType,
 }: StatsCardProps) => {
   // Determinar tendencia automáticamente si no se proporciona
   const actualTrend =
@@ -31,6 +33,15 @@ export const StatsCard = ({
           ? "down"
           : "neutral"
       : "neutral");
+
+  // Usar changeType si está disponible, sino usar trend
+  const actualChangeType =
+    changeType ||
+    (actualTrend === "up"
+      ? "positive"
+      : actualTrend === "down"
+        ? "negative"
+        : "neutral");
 
   const trendConfig = {
     up: {
@@ -50,7 +61,23 @@ export const StatsCard = ({
     },
   };
 
+  const changeColorConfig = {
+    positive: {
+      color: "text-green-400",
+      bgColor: "bg-green-500/20",
+    },
+    negative: {
+      color: "text-red-400",
+      bgColor: "bg-red-500/20",
+    },
+    neutral: {
+      color: "text-white/60",
+      bgColor: "bg-white/10",
+    },
+  };
+
   const TrendIcon = trendConfig[actualTrend].icon;
+  const changeColors = changeColorConfig[actualChangeType];
 
   return (
     <Card hover className="group">
@@ -70,8 +97,8 @@ export const StatsCard = ({
                 <div
                   className={clsx(
                     "flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium",
-                    trendConfig[actualTrend].bgColor,
-                    trendConfig[actualTrend].color
+                    changeColors.bgColor,
+                    changeColors.color
                   )}
                 >
                   <TrendIcon className="w-3 h-3" />
@@ -86,11 +113,11 @@ export const StatsCard = ({
           </div>
           <div
             className={clsx(
-              "p-3 rounded-xl transition-transform group-hover:scale-110",
-              iconColor
+              "p-3 rounded-xl transition-transform group-hover:scale-110"
             )}
+            style={{ backgroundColor: iconColor + "20" }}
           >
-            {icon}
+            <Icon className="w-6 h-6" style={{ color: iconColor }} />
           </div>
         </div>
       </div>

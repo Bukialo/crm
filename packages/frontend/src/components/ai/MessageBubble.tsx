@@ -131,7 +131,7 @@ export const MessageBubble = ({ message }: MessageBubbleProps) => {
                   )}
                   onClick={() => {
                     console.log("Action clicked:", action);
-                    toast.info(`Acción: ${action.label}`);
+                    toast.success(`Acción: ${action.label}`);
                   }}
                 >
                   {action.label || action.title || "Acción"}
@@ -253,7 +253,7 @@ export const MessageBubble = ({ message }: MessageBubbleProps) => {
                   onClick={() => {
                     // Aquí podrías integrar con el hook de chat para enviar la sugerencia
                     console.log("Suggestion clicked:", suggestion);
-                    toast.info("Sugerencia seleccionada");
+                    toast.success("Sugerencia seleccionada");
                   }}
                 >
                   💡 {suggestion}

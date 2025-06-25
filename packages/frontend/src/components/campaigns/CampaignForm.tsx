@@ -87,7 +87,7 @@ export const CampaignForm = ({
     const formattedData: CreateCampaignDto = {
       ...data,
       targetCriteria,
-      recipientCount: estimatedRecipients,
+      // ✅ CORREGIDO: Removido recipientCount que no existe en el DTO
       status:
         submitType === "draft"
           ? "DRAFT"
@@ -226,9 +226,11 @@ export const CampaignForm = ({
                   Seleccionar Audiencia
                 </h3>
                 <SegmentBuilder
-                  criteria={targetCriteria}
-                  onChange={setTargetCriteria}
-                  onEstimateChange={setEstimatedRecipients}
+                  // ✅ CORREGIDO: Props corregidas para SegmentBuilder
+                  onSegmentChange={(criteria) =>
+                    setTargetCriteria({ criteria })
+                  }
+                  initialCriteria={[]}
                 />
               </div>
             </div>

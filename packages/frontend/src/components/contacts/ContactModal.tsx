@@ -28,8 +28,8 @@ export const ContactModal: React.FC<ContactModalProps> = ({
     tags: "",
     // Travel preferences - Corregidos los tipos por defecto
     destinations: "",
-    budgetRange: "MEDIUM" as Contact["travelPreferences"]["budgetRange"],
-    travelStyle: "RELAXATION" as Contact["travelPreferences"]["travelStyle"],
+    budgetRange: "MEDIUM" as NonNullable<Contact["travelPreferences"]>["budgetRange"],
+    travelStyle: "RELAXATION" as NonNullable<Contact["travelPreferences"]>["travelStyle"],
     groupSize: 2,
     preferredSeasons: "",
   });
@@ -371,13 +371,7 @@ export const ContactModal: React.FC<ContactModalProps> = ({
                 </label>
                 <select
                   value={formData.budgetRange}
-                  onChange={(e) =>
-                    handleChange(
-                      "budgetRange",
-                      e.target
-                        .value as Contact["travelPreferences"]["budgetRange"]
-                    )
-                  }
+                  onChange={(e) => handleChange("budgetRange", e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                 >
                   <option value="LOW">Económico ($0 - $1,000)</option>
@@ -393,13 +387,7 @@ export const ContactModal: React.FC<ContactModalProps> = ({
                 </label>
                 <select
                   value={formData.travelStyle}
-                  onChange={(e) =>
-                    handleChange(
-                      "travelStyle",
-                      e.target
-                        .value as Contact["travelPreferences"]["travelStyle"]
-                    )
-                  }
+                  onChange={(e) => handleChange("travelStyle", e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                 >
                   <option value="ADVENTURE">Aventura</option>

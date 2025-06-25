@@ -12,11 +12,11 @@ export interface Contact {
   // Clasificación según estado del lead
   status: "INTERESADO" | "PASAJERO" | "CLIENTE";
 
-  // Información de viajes y preferencias
+  // Información de viajes y preferencias - CORREGIDO: hacer opcional todas las propiedades
   travelPreferences?: {
     destinations: string[];
-    budgetRange: "LOW" | "MEDIUM" | "HIGH" | "LUXURY";
-    travelStyle: "ADVENTURE" | "RELAXATION" | "CULTURAL" | "BUSINESS";
+    budgetRange?: "LOW" | "MEDIUM" | "HIGH" | "LUXURY";
+    travelStyle?: "ADVENTURE" | "RELAXATION" | "CULTURAL" | "BUSINESS";
     groupSize: number;
     preferredSeasons: string[];
   };
@@ -35,6 +35,10 @@ export interface Contact {
   source?: string; // 'WEBSITE' | 'REFERRAL' | 'SOCIAL_MEDIA' | 'ADVERTISING'
   createdAt: Date | string;
   updatedAt?: Date | string;
+
+  // ✅ NUEVAS PROPIEDADES para compatibilidad
+  budgetRange?: "LOW" | "MEDIUM" | "HIGH" | "LUXURY";
+  preferredDestinations?: string[];
 }
 
 export interface ContactNote {

@@ -7,16 +7,15 @@ import { PrivateRoute } from "./routes/PrivateRoute";
 import Layout from "./components/layout/Layout";
 import Login from "./pages/auth/Login";
 import Register from "./pages/auth/Register";
-import Dashboard from "./pages/Dashboard";
-import ContactsPage from "./pages/contacts/ContactsPage";
-import ContactDetail from "./pages/contacts/ContactDetail";
-import EmailsPage from "./pages/emails/EmailsPage";
+import { Dashboard } from "./pages/Dashboard";
+import { ContactsPage } from "./pages/contacts/ContactsPage";
+import { ContactDetail } from "./pages/contacts/ContactDetail";
+import { EmailsPage } from "./pages/emails/EmailsPage";
 import { AiChat } from "./components/ai/AiChat";
 import { AiChatButton } from "./components/ai/AiChatButton";
-import AutomationsPage from "./pages/automations/AutomationsPage";
-import CampaignsPage from "./pages/campaigns/CampaignsPage";
+import { AutomationsPage } from "./pages/automations/AutomationsPage";
+import { CampaignsPage } from "./pages/campaigns/CampaignsPage";
 import CalendarPage from "./pages/calendar/CalendarPage";
-
 
 function App() {
   const { setUser, setLoading } = useAuthStore();

@@ -1,266 +1,276 @@
 // src/hooks/useAutomations.ts
-import { useState, useEffect } from "react";
-import {
-  automationService,
-  Automation,
-  AutomationStats,
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { automationService } from "../services/automation.service";
+import type {
   AutomationFilters,
-  CreateAutomationDto,
-  UpdateAutomationDto,
-  ExecuteAutomationDto,
-  AutomationExecution,
+  CreateAutomationDto
 } from "../services/automation.service";
+import toast from "react-hot-toast";
 
-export interface UseAutomationsReturn {
-  // Data
-  automations: Automation[];
-  stats: AutomationStats;
-  executionHistory: AutomationExecution[];
-
-  // Loading states
-  loading: boolean;
-  statsLoading: boolean;
-  executionLoading: boolean;
-
-  // Error states
-  error: string | null;
-
-  // Actions
-  createAutomation: (data: CreateAutomationDto) => Promise<Automation>;
-  updateAutomation: (
-    id: string,
-    data: UpdateAutomationDto
-  ) => Promise<Automation>;
-  deleteAutomation: (id: string) => Promise<void>;
-  executeAutomation: (
-    params: ExecuteAutomationDto
-  ) => Promise<AutomationExecution>;
-  toggleAutomation: (id: string, isActive: boolean) => Promise<void>;
-  refreshAutomations: (filters?: AutomationFilters) => Promise<void>;
-  refreshStats: () => Promise<void>;
-  refreshExecutionHistory: (automationId?: string) => Promise<void>;
-
-  // Filters
-  filters: AutomationFilters;
-  setFilters: (filters: Partial<AutomationFilters>) => void;
-}
-
-export const useAutomations = (): UseAutomationsReturn => {
-  // State
-  const [automations, setAutomations] = useState<Automation[]>([]);
-  const [stats, setStats] = useState<AutomationStats>({
-    totalAutomations: 0,
-    activeAutomations: 0,
-    totalExecutions: 0,
-    successRate: 0,
-    executionsToday: 0,
-    executionsThisWeek: 0,
-    executionsThisMonth: 0,
+// ✅ AGREGADO: Hook para trigger templates
+export const useTriggerTemplates = () => {
+  return useQuery({
+    queryKey: ["automation-trigger-templates"],
+    queryFn: async () => {
+      // Mock data para trigger templates
+      return [
+        {
+          type: "CONTACT_CREATED",
+          name: "Nuevo contacto registrado",
+          description: "Se ejecuta cuando se registra un nuevo contacto",
+          icon: "👤",
+          conditions: [
+            {
+              field: "status",
+              label: "Estado del contacto",
+              type: "select",
+              required: false,
+              options: ["INTERESADO", "PASAJERO", "CLIENTE"],
+            },
+            {
+              field: "source",
+              label: "Fuente",
+              type: "select",
+              required: false,
+              options: ["WEBSITE", "REFERRAL", "SOCIAL_MEDIA", "ADVERTISING"],
+            },
+          ],
+        },
+        {
+          type: "TRIP_QUOTE_REQUESTED",
+          name: "Cotización solicitada",
+          description: "Se ejecuta cuando se solicita una cotización",
+          icon: "✈️",
+          conditions: [
+            {
+              field: "destination",
+              label: "Destino",
+              type: "text",
+              required: false,
+            },
+            {
+              field: "budgetRange",
+              label: "Rango de presupuesto",
+              type: "select",
+              required: false,
+              options: ["LOW", "MEDIUM", "HIGH", "LUXURY"],
+            },
+          ],
+        },
+        {
+          type: "PAYMENT_OVERDUE",
+          name: "Pago vencido",
+          description: "Se ejecuta cuando un pago está vencido",
+          icon: "💳",
+          conditions: [
+            {
+              field: "daysOverdue",
+              label: "Días de vencimiento",
+              type: "number",
+              required: true,
+              default: 1,
+            },
+          ],
+        },
+        {
+          type: "NO_ACTIVITY_30_DAYS",
+          name: "Sin actividad por 30 días",
+          description: "Se ejecuta cuando no hay actividad por 30 días",
+          icon: "📅",
+          conditions: [
+            {
+              field: "days",
+              label: "Días sin actividad",
+              type: "number",
+              required: true,
+              default: 30,
+            },
+            {
+              field: "excludeTags",
+              label: "Excluir etiquetas",
+              type: "array",
+              required: false,
+            },
+          ],
+        },
+        {
+          type: "BIRTHDAY",
+          name: "Cumpleaños",
+          description: "Se ejecuta en el cumpleaños del contacto",
+          icon: "🎂",
+          conditions: [
+            {
+              field: "daysBefore",
+              label: "Días antes",
+              type: "number",
+              required: false,
+              default: 0,
+            },
+          ],
+        },
+      ];
+    },
   });
-  const [executionHistory, setExecutionHistory] = useState<
-    AutomationExecution[]
-  >([]);
-  const [filters, setFiltersState] = useState<AutomationFilters>({});
+};
 
-  // Loading states
-  const [loading, setLoading] = useState(false);
-  const [statsLoading, setStatsLoading] = useState(false);
-  const [executionLoading, setExecutionLoading] = useState(false);
+// ✅ AGREGADO: Hook para action templates
+export const useActionTemplates = () => {
+  return useQuery({
+    queryKey: ["automation-action-templates"],
+    queryFn: async () => {
+      // Mock data para action templates
+      return [
+        {
+          type: "SEND_EMAIL",
+          name: "Enviar Email",
+          description: "Envía un email al contacto",
+          icon: "📧",
+          fields: [
+            {
+              name: "templateId",
+              label: "Plantilla de Email",
+              type: "select",
+              required: true,
+            },
+            {
+              name: "subject",
+              label: "Asunto personalizado",
+              type: "text",
+              required: false,
+            },
+          ],
+        },
+        {
+          type: "CREATE_TASK",
+          name: "Crear Tarea",
+          description: "Crea una tarea para el agente",
+          icon: "📋",
+          fields: [
+            {
+              name: "title",
+              label: "Título de la tarea",
+              type: "text",
+              required: true,
+            },
+            {
+              name: "description",
+              label: "Descripción",
+              type: "textarea",
+              required: false,
+            },
+            {
+              name: "priority",
+              label: "Prioridad",
+              type: "select",
+              required: true,
+              options: ["LOW", "MEDIUM", "HIGH", "URGENT"],
+            },
+          ],
+        },
+      ];
+    },
+  });
+};
 
-  // Error state
-  const [error, setError] = useState<string | null>(null);
+// Hook principal para automations
+export const useAutomations = (filters?: AutomationFilters) => {
+  const queryClient = useQueryClient();
 
-  // Load initial data
-  useEffect(() => {
-    loadInitialData();
-  }, []);
+  const {
+    data: automations = [],
+    isLoading,
+    error,
+    refetch,
+  } = useQuery({
+    queryKey: ["automations", filters],
+    queryFn: () => automationService.getAutomations(filters),
+    staleTime: 5 * 60 * 1000, // 5 minutos
+  });
 
-  // Reload automations when filters change
-  useEffect(() => {
-    refreshAutomations(filters);
-  }, [filters]);
+  const createMutation = useMutation({
+    mutationFn: (data: CreateAutomationDto) =>
+      automationService.createAutomation(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["automations"] });
+      toast.success("Automatización creada exitosamente");
+    },
+    onError: (error: any) => {
+      toast.error(error.message || "Error al crear automatización");
+    },
+  });
 
-  const loadInitialData = async () => {
-    await Promise.all([refreshAutomations(), refreshStats()]);
-  };
+  const updateMutation = useMutation({
+    mutationFn: ({
+      id,
+      data,
+    }: {
+      id: string;
+      data: Partial<CreateAutomationDto>;
+    }) => automationService.updateAutomation(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["automations"] });
+      toast.success("Automatización actualizada exitosamente");
+    },
+    onError: (error: any) => {
+      toast.error(error.message || "Error al actualizar automatización");
+    },
+  });
 
-  const refreshAutomations = async (filterOverride?: AutomationFilters) => {
-    setLoading(true);
-    setError(null);
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => automationService.deleteAutomation(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["automations"] });
+      toast.success("Automatización eliminada exitosamente");
+    },
+    onError: (error: any) => {
+      toast.error(error.message || "Error al eliminar automatización");
+    },
+  });
 
-    try {
-      const currentFilters = filterOverride || filters;
-      const data = await automationService.getAutomations(currentFilters);
-      setAutomations(data);
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Error loading automations"
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
+  const toggleMutation = useMutation({
+    mutationFn: ({ id, isActive }: { id: string; isActive: boolean }) =>
+      automationService.toggleAutomation(id, isActive),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["automations"] });
+      toast.success("Estado de automatización actualizado");
+    },
+    onError: (error: any) => {
+      toast.error(error.message || "Error al cambiar estado");
+    },
+  });
 
-  const refreshStats = async () => {
-    setStatsLoading(true);
-
-    try {
-      const data = await automationService.getAutomationStats();
-      setStats(data);
-    } catch (err) {
-      console.error("Error loading automation stats:", err);
-    } finally {
-      setStatsLoading(false);
-    }
-  };
-
-  const refreshExecutionHistory = async (automationId?: string) => {
-    setExecutionLoading(true);
-
-    try {
-      const data = await automationService.getExecutionHistory(automationId);
-      setExecutionHistory(data);
-    } catch (err) {
-      console.error("Error loading execution history:", err);
-    } finally {
-      setExecutionLoading(false);
-    }
-  };
-
-  const createAutomation = async (
-    data: CreateAutomationDto
-  ): Promise<Automation> => {
-    try {
-      const newAutomation = await automationService.createAutomation(data);
-      setAutomations((prev) => [newAutomation, ...prev]);
-      await refreshStats();
-      return newAutomation;
-    } catch (err) {
-      const errorMessage =
-        err instanceof Error ? err.message : "Error creating automation";
-      setError(errorMessage);
-      throw new Error(errorMessage);
-    }
-  };
-
-  const updateAutomation = async (
-    id: string,
-    data: UpdateAutomationDto
-  ): Promise<Automation> => {
-    try {
-      const updatedAutomation = await automationService.updateAutomation(
-        id,
-        data
-      );
-      setAutomations((prev) =>
-        prev.map((automation) =>
-          automation.id === id ? updatedAutomation : automation
-        )
-      );
-      await refreshStats();
-      return updatedAutomation;
-    } catch (err) {
-      const errorMessage =
-        err instanceof Error ? err.message : "Error updating automation";
-      setError(errorMessage);
-      throw new Error(errorMessage);
-    }
-  };
-
-  const deleteAutomation = async (id: string): Promise<void> => {
-    try {
-      await automationService.deleteAutomation(id);
-      setAutomations((prev) =>
-        prev.filter((automation) => automation.id !== id)
-      );
-      await refreshStats();
-    } catch (err) {
-      const errorMessage =
-        err instanceof Error ? err.message : "Error deleting automation";
-      setError(errorMessage);
-      throw new Error(errorMessage);
-    }
-  };
-
-  const executeAutomation = async (
-    params: ExecuteAutomationDto
-  ): Promise<AutomationExecution> => {
-    try {
-      const execution = await automationService.executeAutomation(params);
-
-      // Update execution count for the automation
-      setAutomations((prev) =>
-        prev.map((automation) =>
-          automation.id === params.id
-            ? {
-                ...automation,
-                executionCount: automation.executionCount + 1,
-                lastExecuted: new Date().toISOString(),
-              }
-            : automation
-        )
-      );
-
-      await refreshStats();
-      return execution;
-    } catch (err) {
-      const errorMessage =
-        err instanceof Error ? err.message : "Error executing automation";
-      setError(errorMessage);
-      throw new Error(errorMessage);
-    }
-  };
-
-  const toggleAutomation = async (
-    id: string,
-    isActive: boolean
-  ): Promise<void> => {
-    try {
-      await automationService.toggleAutomation(id, isActive);
-      setAutomations((prev) =>
-        prev.map((automation) =>
-          automation.id === id ? { ...automation, isActive } : automation
-        )
-      );
-      await refreshStats();
-    } catch (err) {
-      const errorMessage =
-        err instanceof Error ? err.message : "Error toggling automation";
-      setError(errorMessage);
-      throw new Error(errorMessage);
-    }
-  };
-
-  const setFilters = (newFilters: Partial<AutomationFilters>) => {
-    setFiltersState((prev) => ({ ...prev, ...newFilters }));
-  };
+  // ✅ AGREGADO: Execution history hook
+  const {
+    data: executionHistory = [],
+    isLoading: executionLoading,
+    refetch: refreshExecutionHistory,
+  } = useQuery({
+    queryKey: ["automation-executions"],
+    queryFn: () => automationService.getExecutionHistory(),
+    staleTime: 2 * 60 * 1000, // 2 minutos
+  });
 
   return {
-    // Data
     automations,
-    stats,
-    executionHistory,
+    isLoading,
+    error,
+    refetch,
+
+    // CRUD operations
+    createAutomation: createMutation.mutate,
+    updateAutomation: updateMutation.mutate,
+    deleteAutomation: deleteMutation.mutate,
+    toggleAutomation: toggleMutation.mutate,
 
     // Loading states
-    loading,
-    statsLoading,
+    isCreating: createMutation.isPending,
+    isUpdating: updateMutation.isPending,
+    isDeleting: deleteMutation.isPending,
+    isToggling: toggleMutation.isPending,
+
+    // ✅ AGREGADO: Execution history
+    executionHistory,
     executionLoading,
-
-    // Error state
-    error,
-
-    // Actions
-    createAutomation,
-    updateAutomation,
-    deleteAutomation,
-    executeAutomation,
-    toggleAutomation,
-    refreshAutomations,
-    refreshStats,
     refreshExecutionHistory,
-
-    // Filters
-    filters,
-    setFilters,
   };
 };

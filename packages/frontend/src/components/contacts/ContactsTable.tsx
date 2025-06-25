@@ -3,13 +3,10 @@ import { useNavigate } from "react-router-dom";
 import {
   Mail,
   Phone,
-  Calendar,
-  Tag,
   MoreVertical,
   Edit,
   Trash2,
   Eye,
-  UserCheck,
   Plane,
   Star,
 } from "lucide-react";

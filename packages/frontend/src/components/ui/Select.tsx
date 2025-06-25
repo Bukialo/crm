@@ -1,4 +1,4 @@
-// src/components/ui/select.tsx
+// src/components/ui/Select.tsx
 import React, { useState, useRef, useEffect } from "react";
 import { ChevronDown } from "lucide-react";
 
@@ -36,9 +36,11 @@ const SelectContext = React.createContext<{
   isOpen: boolean;
   setIsOpen: (open: boolean) => void;
   placeholder?: string;
+  disabled?: boolean;
 }>({
   isOpen: false,
   setIsOpen: () => {},
+  disabled: false,
 });
 
 export const Select: React.FC<SelectProps> = ({
@@ -73,6 +75,7 @@ export const Select: React.FC<SelectProps> = ({
     isOpen,
     setIsOpen,
     placeholder,
+    disabled,
   };
 
   return (
@@ -88,13 +91,14 @@ export const SelectTrigger: React.FC<SelectTriggerProps> = ({
   children,
   className = "",
 }) => {
-  const { isOpen, setIsOpen } = React.useContext(SelectContext);
+  const { isOpen, setIsOpen, disabled } = React.useContext(SelectContext);
 
   return (
     <button
       type="button"
-      onClick={() => setIsOpen(!isOpen)}
-      className={`flex items-center justify-between w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white ${className}`}
+      onClick={() => !disabled && setIsOpen(!isOpen)}
+      disabled={disabled}
+      className={`flex items-center justify-between w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white disabled:opacity-50 disabled:cursor-not-allowed ${className}`}
     >
       {children}
       <ChevronDown
