@@ -1,4 +1,4 @@
-// src/components/campaigns/SegmentBuilder.tsx
+// src/components/campaigns/SegmentBuilder.tsx - CORREGIDO
 import React, { useState } from "react";
 import { X, Users } from "lucide-react";
 import Card, { CardContent, CardHeader, CardTitle } from "../ui/Card";
@@ -14,16 +14,28 @@ interface SegmentCriteria {
 
 // ✅ CORREGIDO: Props actualizadas para coincidir con el uso en CampaignForm
 interface SegmentBuilderProps {
-  criteria: any; // Criterios actuales
+  criteria?: any; // Criterios actuales
   onChange: (criteria: any) => void; // Función de cambio
-  onEstimateChange: () => void; // Función para estimar cantidad de destinatarios
+  onEstimateChange?: () => void; // Función para estimar cantidad de destinatarios
+  initialCriteria?: any[]; // Criterios iniciales (opcional)
 }
 
 export const SegmentBuilder: React.FC<SegmentBuilderProps> = ({
   onChange,
   onEstimateChange,
+  criteria = {},
+  initialCriteria = [],
 }) => {
-  const [segmentCriteria, setSegmentCriteria] = useState<SegmentCriteria[]>([]);
+  const [segmentCriteria, setSegmentCriteria] = useState<SegmentCriteria[]>(
+    initialCriteria.length > 0
+      ? initialCriteria.map((criterion, index) => ({
+          id: `criteria_${index}`,
+          field: criterion.field || "status",
+          operator: criterion.operator || "equals",
+          value: criterion.value || "",
+        }))
+      : []
+  );
   const [previewCount, setPreviewCount] = useState<number>(0);
   const [isPreviewLoading, setIsPreviewLoading] = useState(false);
 
@@ -130,7 +142,9 @@ export const SegmentBuilder: React.FC<SegmentBuilderProps> = ({
     }, {} as any);
 
     onChange(criteriaObject);
-    onEstimateChange();
+    if (onEstimateChange) {
+      onEstimateChange();
+    }
   };
 
   const removeCriteria = (id: string) => {
@@ -146,7 +160,9 @@ export const SegmentBuilder: React.FC<SegmentBuilderProps> = ({
     }, {} as any);
 
     onChange(criteriaObject);
-    onEstimateChange();
+    if (onEstimateChange) {
+      onEstimateChange();
+    }
   };
 
   const updateCriteria = (
@@ -168,7 +184,9 @@ export const SegmentBuilder: React.FC<SegmentBuilderProps> = ({
     }, {} as any);
 
     onChange(criteriaObject);
-    onEstimateChange();
+    if (onEstimateChange) {
+      onEstimateChange();
+    }
   };
 
   const previewSegment = async () => {

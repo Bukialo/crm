@@ -84,7 +84,7 @@ export const AutomationForm = ({
         automation?.actions?.map((action, index) => ({
           type: action.type,
           parameters: action.parameters,
-          delayMinutes: action.delay || 0,
+          delayMinutes: action.delayMinutes || 0,
           order: index + 1,
         })) || [],
     },
@@ -100,8 +100,6 @@ export const AutomationForm = ({
   });
 
   const watchedTriggerType = watch("triggerType");
-  // ✅ CORREGIDO: Variable removida que no se usaba
-  // const watchedActions = watch("actions");
 
   useEffect(() => {
     if (watchedTriggerType) {
@@ -122,7 +120,7 @@ export const AutomationForm = ({
         actions: data.actions.map((action) => ({
           type: action.type as AutomationActionType,
           parameters: action.parameters,
-          delay: action.delayMinutes,
+          delayMinutes: action.delayMinutes,
         })),
         isActive: true,
       };

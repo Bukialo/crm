@@ -40,6 +40,7 @@ export interface CreateCampaignDto {
   useAiPersonalization?: boolean;
   scheduledDate?: string;
   timezone?: string;
+  status?: "DRAFT" | "SCHEDULED" | "SENDING"; // ✅ AGREGADO: campo status
 }
 
 export interface CampaignFilters {
@@ -312,5 +313,5 @@ class CampaignService {
   }
 }
 
-// ¡CORRECCIÓN IMPORTANTE!
-export const campaignsService = new CampaignService();
+// ✅ CORREGIDO: Nombre de exportación corregido
+export const campaignService = new CampaignService();

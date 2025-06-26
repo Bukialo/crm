@@ -1,4 +1,4 @@
-// src/hooks/useContacts.ts
+// packages/frontend/src/hooks/useContacts.ts - ACTUALIZADO
 import { useState, useEffect } from "react";
 import { Contact } from "../types/contact.types";
 
@@ -38,6 +38,15 @@ export interface UseContactsReturn {
   refetch: () => Promise<void>;
 }
 
+// ✅ FUNCIÓN PARA GENERAR UUIDs VÁLIDOS
+const generateUUID = () => {
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function (c) {
+    const r = (Math.random() * 16) | 0;
+    const v = c == "x" ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+};
+
 export const useContacts = (): UseContactsReturn => {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [totalContacts, setTotalContacts] = useState(0);
@@ -49,10 +58,10 @@ export const useContacts = (): UseContactsReturn => {
   const [isDeleting, setIsDeleting] = useState(false);
   const [error, setError] = useState<Error | null>(null);
 
-  // Mock data para desarrollo
+  // ✅ MOCK DATA CON UUIDs VÁLIDOS
   const mockContacts: Contact[] = [
     {
-      id: "1",
+      id: "550e8400-e29b-41d4-a716-446655440001", // ✅ UUID válido
       firstName: "María",
       lastName: "García",
       email: "maria@example.com",
@@ -71,7 +80,7 @@ export const useContacts = (): UseContactsReturn => {
       lastContact: new Date("2025-06-20"),
     },
     {
-      id: "2",
+      id: "550e8400-e29b-41d4-a716-446655440002", // ✅ UUID válido
       firstName: "Juan",
       lastName: "Pérez",
       email: "juan@example.com",
@@ -90,7 +99,7 @@ export const useContacts = (): UseContactsReturn => {
       lastContact: new Date("2025-06-22"),
     },
     {
-      id: "3",
+      id: "550e8400-e29b-41d4-a716-446655440003", // ✅ UUID válido
       firstName: "Ana",
       lastName: "López",
       email: "ana@example.com",
@@ -107,6 +116,44 @@ export const useContacts = (): UseContactsReturn => {
       },
       createdAt: new Date("2025-06-05"),
       lastContact: new Date("2025-06-18"),
+    },
+    {
+      id: "550e8400-e29b-41d4-a716-446655440004", // ✅ UUID válido adicional
+      firstName: "Miguel",
+      lastName: "Fernández",
+      email: "miguel.fernandez@example.com",
+      phone: "+54 11 9999-8888",
+      status: "PASAJERO",
+      source: "REFERRAL",
+      tags: ["Familiar"],
+      travelPreferences: {
+        destinations: ["Londres", "Escocia"],
+        budgetRange: "MEDIUM",
+        travelStyle: "CULTURAL",
+        groupSize: 4,
+        preferredSeasons: ["Primavera", "Verano"],
+      },
+      createdAt: new Date("2025-06-12"),
+      lastContact: new Date("2025-06-25"),
+    },
+    {
+      id: "550e8400-e29b-41d4-a716-446655440005", // ✅ UUID válido adicional
+      firstName: "Patricia",
+      lastName: "Morales",
+      email: "patricia.morales@example.com",
+      phone: "+54 11 7777-6666",
+      status: "CLIENTE",
+      source: "WEBSITE",
+      tags: ["VIP", "Repetidor"],
+      travelPreferences: {
+        destinations: ["Japón", "Corea del Sur"],
+        budgetRange: "LUXURY",
+        travelStyle: "CULTURAL",
+        groupSize: 2,
+        preferredSeasons: ["Otoño", "Primavera"],
+      },
+      createdAt: new Date("2025-06-08"),
+      lastContact: new Date("2025-06-24"),
     },
   ];
 
@@ -128,6 +175,14 @@ export const useContacts = (): UseContactsReturn => {
       setTotalContacts(mockContacts.length);
       setTotalPages(Math.ceil(mockContacts.length / 10));
       setCurrentPage(1);
+
+      console.log(
+        "✅ Contacts loaded with UUIDs:",
+        mockContacts.map((c) => ({
+          id: c.id,
+          name: `${c.firstName} ${c.lastName}`,
+        }))
+      );
     } catch (err) {
       setError(
         err instanceof Error ? err : new Error("Error loading contacts")
@@ -147,8 +202,9 @@ export const useContacts = (): UseContactsReturn => {
       // Simular delay de API
       await new Promise((resolve) => setTimeout(resolve, 500));
 
+      // ✅ GENERAR UUID VÁLIDO
       const newContact: Contact = {
-        id: Math.random().toString(36).substr(2, 9),
+        id: generateUUID(), // ✅ UUID válido en lugar de Math.random()
         firstName: data.firstName,
         lastName: data.lastName,
         email: data.email,
@@ -165,6 +221,7 @@ export const useContacts = (): UseContactsReturn => {
       setContacts((prev) => [newContact, ...prev]);
       setTotalContacts((prev) => prev + 1);
 
+      console.log("✅ New contact created with UUID:", newContact.id);
       return newContact;
     } catch (err) {
       const error =
@@ -240,8 +297,9 @@ export const useContacts = (): UseContactsReturn => {
       // Simular delay de API
       await new Promise((resolve) => setTimeout(resolve, 500));
 
+      // ✅ GENERAR UUID VÁLIDO PARA LA NOTA
       const newNote = {
-        id: Math.random().toString(36).substr(2, 9),
+        id: generateUUID(), // ✅ UUID válido
         contactId,
         content: noteContent,
         createdBy: "Usuario Actual",
