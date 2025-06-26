@@ -1,4 +1,4 @@
-import { Trophy, TrendingUp, Users } from "lucide-react";
+import { Trophy, TrendingUp } from "lucide-react";
 import Card, { CardContent, CardHeader, CardTitle } from "../ui/Card";
 import { AgentPerformance as AgentPerformanceType } from "../../services/dashboard.service";
 
@@ -32,7 +32,6 @@ export const AgentPerformance = ({
 
   // Ordenar por revenue
   const sortedAgents = [...agents].sort((a, b) => b.revenue - a.revenue);
-  const topAgent = sortedAgents[0];
 
   return (
     <Card>

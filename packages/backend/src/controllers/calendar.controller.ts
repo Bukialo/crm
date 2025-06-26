@@ -5,6 +5,22 @@ import { CalendarService } from "../services/calendar.service";
 import { ApiResponse } from "@bukialo/shared";
 import { EventType } from "@prisma/client";
 
+// Extend Request interface to include user
+declare global {
+  namespace Express {
+    interface Request {
+      user?: {
+        id: string;
+        email: string;
+        firstName: string;
+        lastName: string;
+        role: string;
+        firebaseUid: string;
+      };
+    }
+  }
+}
+
 // Validation schemas
 const createEventSchema = z.object({
   title: z.string().min(1, "Title is required"),
@@ -57,347 +73,469 @@ export class CalendarController {
   }
 
   // Create event
-  createEvent = asyncHandler(async (req: Request, res: Response) => {
-    const validatedData = createEventSchema.parse(req.body);
+  createEvent = asyncHandler(
+    async (req: Request, res: Response): Promise<void> => {
+      if (!req.user) {
+        res.status(401).json({
+          success: false,
+          error: "Usuario no autenticado",
+        });
+        return;
+      }
 
-    // Check for conflicts
-    const conflicts = await this.calendarService.getConflictingEvents(
-      validatedData.startDate,
-      validatedData.endDate,
-      validatedData.assignedToId
-    );
+      const validatedData = createEventSchema.parse(req.body);
 
-    if (conflicts.length > 0 && !validatedData.allDay) {
-      return res.status(409).json({
-        success: false,
-        error: "Time conflict detected",
-        data: { conflicts },
-      });
-    }
-
-    const event = await this.calendarService.createEvent(
-      validatedData,
-      req.user!.id
-    );
-
-    const response: ApiResponse = {
-      success: true,
-      data: event,
-      message: "Event created successfully",
-    };
-
-    res.status(201).json(response);
-  });
-
-  // Get all events
-  getEvents = asyncHandler(async (req: Request, res: Response) => {
-    const filters = getEventsQuerySchema.parse(req.query);
-
-    const events = await this.calendarService.getEvents(filters);
-
-    const response: ApiResponse = {
-      success: true,
-      data: events,
-    };
-
-    res.json(response);
-  });
-
-  // Get events by date range
-  getEventsByDateRange = asyncHandler(async (req: Request, res: Response) => {
-    const { startDate, endDate, userId } = dateRangeQuerySchema.parse(
-      req.query
-    );
-
-    const events = await this.calendarService.getEventsByDateRange(
-      startDate,
-      endDate,
-      userId
-    );
-
-    const response: ApiResponse = {
-      success: true,
-      data: events,
-    };
-
-    res.json(response);
-  });
-
-  // Get single event
-  getEvent = asyncHandler(async (req: Request, res: Response) => {
-    const { id } = req.params;
-
-    const event = await this.calendarService.getEvent(id);
-
-    if (!event) {
-      return res.status(404).json({
-        success: false,
-        error: "Event not found",
-      });
-    }
-
-    const response: ApiResponse = {
-      success: true,
-      data: event,
-    };
-
-    res.json(response);
-  });
-
-  // Update event
-  updateEvent = asyncHandler(async (req: Request, res: Response) => {
-    const { id } = req.params;
-    const validatedData = updateEventSchema.parse(req.body);
-
-    // Check for conflicts if dates are being updated
-    if (
-      validatedData.startDate &&
-      validatedData.endDate &&
-      validatedData.assignedToId
-    ) {
+      // Check for conflicts
       const conflicts = await this.calendarService.getConflictingEvents(
         validatedData.startDate,
         validatedData.endDate,
-        validatedData.assignedToId,
-        id // exclude current event
+        validatedData.assignedToId
       );
 
       if (conflicts.length > 0 && !validatedData.allDay) {
-        return res.status(409).json({
+        res.status(409).json({
           success: false,
           error: "Time conflict detected",
           data: { conflicts },
         });
+        return;
       }
+
+      const event = await this.calendarService.createEvent(
+        validatedData,
+        req.user.id
+      );
+
+      const response: ApiResponse = {
+        success: true,
+        data: event,
+        message: "Event created successfully",
+      };
+
+      res.status(201).json(response);
     }
+  );
 
-    const event = await this.calendarService.updateEvent(
-      id,
-      validatedData,
-      req.user!.id
-    );
+  // Get all events
+  getEvents = asyncHandler(
+    async (req: Request, res: Response): Promise<void> => {
+      const filters = getEventsQuerySchema.parse(req.query);
 
-    const response: ApiResponse = {
-      success: true,
-      data: event,
-      message: "Event updated successfully",
-    };
+      const events = await this.calendarService.getEvents(filters);
 
-    res.json(response);
-  });
+      const response: ApiResponse = {
+        success: true,
+        data: events,
+      };
+
+      res.json(response);
+    }
+  );
+
+  // Get events by date range
+  getEventsByDateRange = asyncHandler(
+    async (req: Request, res: Response): Promise<void> => {
+      const { startDate, endDate, userId } = dateRangeQuerySchema.parse(
+        req.query
+      );
+
+      const events = await this.calendarService.getEventsByDateRange(
+        startDate,
+        endDate,
+        userId
+      );
+
+      const response: ApiResponse = {
+        success: true,
+        data: events,
+      };
+
+      res.json(response);
+    }
+  );
+
+  // Get single event
+  getEvent = asyncHandler(
+    async (req: Request, res: Response): Promise<void> => {
+      const { id } = req.params;
+
+      const event = await this.calendarService.getEvent(id);
+
+      if (!event) {
+        res.status(404).json({
+          success: false,
+          error: "Event not found",
+        });
+        return;
+      }
+
+      const response: ApiResponse = {
+        success: true,
+        data: event,
+      };
+
+      res.json(response);
+    }
+  );
+
+  // Update event
+  updateEvent = asyncHandler(
+    async (req: Request, res: Response): Promise<void> => {
+      if (!req.user) {
+        res.status(401).json({
+          success: false,
+          error: "Usuario no autenticado",
+        });
+        return;
+      }
+
+      const { id } = req.params;
+      const validatedData = updateEventSchema.parse(req.body);
+
+      // Check for conflicts if dates are being updated
+      if (
+        validatedData.startDate &&
+        validatedData.endDate &&
+        validatedData.assignedToId
+      ) {
+        const conflicts = await this.calendarService.getConflictingEvents(
+          validatedData.startDate,
+          validatedData.endDate,
+          validatedData.assignedToId,
+          id // exclude current event
+        );
+
+        if (conflicts.length > 0 && !validatedData.allDay) {
+          res.status(409).json({
+            success: false,
+            error: "Time conflict detected",
+            data: { conflicts },
+          });
+          return;
+        }
+      }
+
+      const event = await this.calendarService.updateEvent(
+        id,
+        validatedData,
+        req.user.id
+      );
+
+      const response: ApiResponse = {
+        success: true,
+        data: event,
+        message: "Event updated successfully",
+      };
+
+      res.json(response);
+    }
+  );
 
   // Delete event
-  deleteEvent = asyncHandler(async (req: Request, res: Response) => {
-    const { id } = req.params;
+  deleteEvent = asyncHandler(
+    async (req: Request, res: Response): Promise<void> => {
+      if (!req.user) {
+        res.status(401).json({
+          success: false,
+          error: "Usuario no autenticado",
+        });
+        return;
+      }
 
-    await this.calendarService.deleteEvent(id, req.user!.id);
+      const { id } = req.params;
 
-    const response: ApiResponse = {
-      success: true,
-      message: "Event deleted successfully",
-    };
+      await this.calendarService.deleteEvent(id, req.user.id);
 
-    res.json(response);
-  });
+      const response: ApiResponse = {
+        success: true,
+        message: "Event deleted successfully",
+      };
+
+      res.json(response);
+    }
+  );
 
   // Get upcoming events
-  getUpcomingEvents = asyncHandler(async (req: Request, res: Response) => {
-    const { days = "7" } = req.query;
+  getUpcomingEvents = asyncHandler(
+    async (req: Request, res: Response): Promise<void> => {
+      if (!req.user) {
+        res.status(401).json({
+          success: false,
+          error: "Usuario no autenticado",
+        });
+        return;
+      }
 
-    const events = await this.calendarService.getUpcomingEvents(
-      req.user!.id,
-      parseInt(days as string)
-    );
+      const { days = "7" } = req.query;
 
-    const response: ApiResponse = {
-      success: true,
-      data: events,
-    };
+      const events = await this.calendarService.getUpcomingEvents(
+        req.user.id,
+        parseInt(days as string)
+      );
 
-    res.json(response);
-  });
+      const response: ApiResponse = {
+        success: true,
+        data: events,
+      };
+
+      res.json(response);
+    }
+  );
 
   // Get calendar statistics
-  getCalendarStats = asyncHandler(async (req: Request, res: Response) => {
-    const stats = await this.calendarService.getCalendarStats(req.user!.id);
+  getCalendarStats = asyncHandler(
+    async (req: Request, res: Response): Promise<void> => {
+      if (!req.user) {
+        res.status(401).json({
+          success: false,
+          error: "Usuario no autenticado",
+        });
+        return;
+      }
 
-    const response: ApiResponse = {
-      success: true,
-      data: stats,
-    };
+      const stats = await this.calendarService.getCalendarStats(req.user.id);
 
-    res.json(response);
-  });
+      const response: ApiResponse = {
+        success: true,
+        data: stats,
+      };
+
+      res.json(response);
+    }
+  );
 
   // Generate trip events
-  generateTripEvents = asyncHandler(async (req: Request, res: Response) => {
-    const { tripId } = generateTripEventsSchema.parse(req.body);
+  generateTripEvents = asyncHandler(
+    async (req: Request, res: Response): Promise<void> => {
+      if (!req.user) {
+        res.status(401).json({
+          success: false,
+          error: "Usuario no autenticado",
+        });
+        return;
+      }
 
-    const events = await this.calendarService.generateTripEvents(
-      tripId,
-      req.user!.id
-    );
+      const { tripId } = generateTripEventsSchema.parse(req.body);
 
-    const response: ApiResponse = {
-      success: true,
-      data: events,
-      message: `Generated ${events.length} events for the trip`,
-    };
+      const events = await this.calendarService.generateTripEvents(
+        tripId,
+        req.user.id
+      );
 
-    res.json(response);
-  });
+      const response: ApiResponse = {
+        success: true,
+        data: events,
+        message: `Generated ${events.length} events for the trip`,
+      };
+
+      res.json(response);
+    }
+  );
 
   // Get AI event suggestions
-  getAISuggestions = asyncHandler(async (req: Request, res: Response) => {
-    const { contactId } = req.params;
+  getAISuggestions = asyncHandler(
+    async (req: Request, res: Response): Promise<void> => {
+      if (!req.user) {
+        res.status(401).json({
+          success: false,
+          error: "Usuario no autenticado",
+        });
+        return;
+      }
 
-    const suggestions = await this.calendarService.generateAIEventSuggestions(
-      contactId,
-      req.user!.id
-    );
+      const { contactId } = req.params;
 
-    const response: ApiResponse = {
-      success: true,
-      data: suggestions,
-    };
+      const suggestions = await this.calendarService.generateAIEventSuggestions(
+        contactId,
+        req.user.id
+      );
 
-    res.json(response);
-  });
+      const response: ApiResponse = {
+        success: true,
+        data: suggestions,
+      };
+
+      res.json(response);
+    }
+  );
 
   // Check for time conflicts
-  checkConflicts = asyncHandler(async (req: Request, res: Response) => {
-    const { startDate, endDate, userId, excludeEventId } =
-      checkConflictsSchema.parse(req.body);
+  checkConflicts = asyncHandler(
+    async (req: Request, res: Response): Promise<void> => {
+      const { startDate, endDate, userId, excludeEventId } =
+        checkConflictsSchema.parse(req.body);
 
-    const conflicts = await this.calendarService.getConflictingEvents(
-      startDate,
-      endDate,
-      userId,
-      excludeEventId
-    );
+      const conflicts = await this.calendarService.getConflictingEvents(
+        startDate,
+        endDate,
+        userId,
+        excludeEventId
+      );
 
-    const response: ApiResponse = {
-      success: true,
-      data: {
-        hasConflicts: conflicts.length > 0,
-        conflicts,
-      },
-    };
+      const response: ApiResponse = {
+        success: true,
+        data: {
+          hasConflicts: conflicts.length > 0,
+          conflicts,
+        },
+      };
 
-    res.json(response);
-  });
+      res.json(response);
+    }
+  );
 
   // Get events for today
-  getTodayEvents = asyncHandler(async (req: Request, res: Response) => {
-    const today = new Date();
-    const startOfDay = new Date(today.setHours(0, 0, 0, 0));
-    const endOfDay = new Date(today.setHours(23, 59, 59, 999));
+  getTodayEvents = asyncHandler(
+    async (req: Request, res: Response): Promise<void> => {
+      if (!req.user) {
+        res.status(401).json({
+          success: false,
+          error: "Usuario no autenticado",
+        });
+        return;
+      }
 
-    const events = await this.calendarService.getEventsByDateRange(
-      startOfDay,
-      endOfDay,
-      req.user!.id
-    );
+      const today = new Date();
+      const startOfDay = new Date(today.setHours(0, 0, 0, 0));
+      const endOfDay = new Date(today.setHours(23, 59, 59, 999));
 
-    const response: ApiResponse = {
-      success: true,
-      data: events,
-    };
+      const events = await this.calendarService.getEventsByDateRange(
+        startOfDay,
+        endOfDay,
+        req.user.id
+      );
 
-    res.json(response);
-  });
+      const response: ApiResponse = {
+        success: true,
+        data: events,
+      };
+
+      res.json(response);
+    }
+  );
 
   // Get events for this week
-  getWeekEvents = asyncHandler(async (req: Request, res: Response) => {
-    const today = new Date();
-    const startOfWeek = new Date(today);
-    startOfWeek.setDate(today.getDate() - today.getDay()); // Start from Sunday
-    startOfWeek.setHours(0, 0, 0, 0);
+  getWeekEvents = asyncHandler(
+    async (req: Request, res: Response): Promise<void> => {
+      if (!req.user) {
+        res.status(401).json({
+          success: false,
+          error: "Usuario no autenticado",
+        });
+        return;
+      }
 
-    const endOfWeek = new Date(startOfWeek);
-    endOfWeek.setDate(startOfWeek.getDate() + 6); // End on Saturday
-    endOfWeek.setHours(23, 59, 59, 999);
+      const today = new Date();
+      const startOfWeek = new Date(today);
+      startOfWeek.setDate(today.getDate() - today.getDay()); // Start from Sunday
+      startOfWeek.setHours(0, 0, 0, 0);
 
-    const events = await this.calendarService.getEventsByDateRange(
-      startOfWeek,
-      endOfWeek,
-      req.user!.id
-    );
+      const endOfWeek = new Date(startOfWeek);
+      endOfWeek.setDate(startOfWeek.getDate() + 6); // End on Saturday
+      endOfWeek.setHours(23, 59, 59, 999);
 
-    const response: ApiResponse = {
-      success: true,
-      data: events,
-    };
+      const events = await this.calendarService.getEventsByDateRange(
+        startOfWeek,
+        endOfWeek,
+        req.user.id
+      );
 
-    res.json(response);
-  });
+      const response: ApiResponse = {
+        success: true,
+        data: events,
+      };
+
+      res.json(response);
+    }
+  );
 
   // Get events for this month
-  getMonthEvents = asyncHandler(async (req: Request, res: Response) => {
-    const today = new Date();
-    const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-    const endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
-    endOfMonth.setHours(23, 59, 59, 999);
+  getMonthEvents = asyncHandler(
+    async (req: Request, res: Response): Promise<void> => {
+      if (!req.user) {
+        res.status(401).json({
+          success: false,
+          error: "Usuario no autenticado",
+        });
+        return;
+      }
 
-    const events = await this.calendarService.getEventsByDateRange(
-      startOfMonth,
-      endOfMonth,
-      req.user!.id
-    );
+      const today = new Date();
+      const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+      const endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+      endOfMonth.setHours(23, 59, 59, 999);
 
-    const response: ApiResponse = {
-      success: true,
-      data: events,
-    };
+      const events = await this.calendarService.getEventsByDateRange(
+        startOfMonth,
+        endOfMonth,
+        req.user.id
+      );
 
-    res.json(response);
-  });
+      const response: ApiResponse = {
+        success: true,
+        data: events,
+      };
+
+      res.json(response);
+    }
+  );
 
   // Bulk create events
-  bulkCreateEvents = asyncHandler(async (req: Request, res: Response) => {
-    const { events } = req.body;
-
-    if (!Array.isArray(events)) {
-      return res.status(400).json({
-        success: false,
-        error: "Events must be an array",
-      });
-    }
-
-    const results = [];
-    const errors = [];
-
-    for (const [index, eventData] of events.entries()) {
-      try {
-        const validatedData = createEventSchema.parse(eventData);
-        const event = await this.calendarService.createEvent(
-          validatedData,
-          req.user!.id
-        );
-        results.push(event);
-      } catch (error: any) {
-        errors.push({
-          index,
-          error: error.message,
-          data: eventData,
+  bulkCreateEvents = asyncHandler(
+    async (req: Request, res: Response): Promise<void> => {
+      if (!req.user) {
+        res.status(401).json({
+          success: false,
+          error: "Usuario no autenticado",
         });
+        return;
       }
+
+      const { events } = req.body;
+
+      if (!Array.isArray(events)) {
+        res.status(400).json({
+          success: false,
+          error: "Events must be an array",
+        });
+        return;
+      }
+
+      const results = [];
+      const errors = [];
+
+      for (const [index, eventData] of events.entries()) {
+        try {
+          const validatedData = createEventSchema.parse(eventData);
+          const event = await this.calendarService.createEvent(
+            validatedData,
+            req.user.id
+          );
+          results.push(event);
+        } catch (error: any) {
+          errors.push({
+            index,
+            error: error.message,
+            data: eventData,
+          });
+        }
+      }
+
+      const response: ApiResponse = {
+        success: true,
+        data: {
+          created: results,
+          errors,
+          total: events.length,
+          successful: results.length,
+          failed: errors.length,
+        },
+        message: `Bulk creation completed: ${results.length} successful, ${errors.length} failed`,
+      };
+
+      res.json(response);
     }
-
-    const response: ApiResponse = {
-      success: true,
-      data: {
-        created: results,
-        errors,
-        total: events.length,
-        successful: results.length,
-        failed: errors.length,
-      },
-      message: `Bulk creation completed: ${results.length} successful, ${errors.length} failed`,
-    };
-
-    res.json(response);
-  });
+  );
 }
 
 export const calendarController = new CalendarController();

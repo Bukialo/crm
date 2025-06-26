@@ -1,4 +1,3 @@
-// Ruta: packages/frontend/src/services/campaigns.service.ts
 import api from "../lib/axios";
 
 export interface Campaign {
@@ -41,6 +40,7 @@ export interface CreateCampaignDto {
   useAiPersonalization?: boolean;
   scheduledDate?: string;
   timezone?: string;
+  status?: "DRAFT" | "SCHEDULED" | "SENDING"; // ✅ AGREGADO: campo status
 }
 
 export interface CampaignFilters {
@@ -89,7 +89,7 @@ export interface CampaignsResponse {
   totalPages: number;
 }
 
-class CampaignsService {
+class CampaignService {
   async getCampaigns(
     filters: CampaignFilters = {}
   ): Promise<CampaignsResponse> {
@@ -145,11 +145,11 @@ class CampaignsService {
 
   async scheduleCampaign(
     id: string,
-    scheduledDate: string,
+    scheduledDate: Date,
     timezone = "UTC"
   ): Promise<Campaign> {
     const response = await api.post(`/campaigns/${id}/schedule`, {
-      scheduledDate,
+      scheduledDate: scheduledDate.toISOString(),
       timezone,
     });
     return response.data.data;
@@ -198,7 +198,7 @@ class CampaignsService {
     return response.data.data;
   }
 
-  async getRecipients(
+  async getCampaignRecipients(
     id: string,
     filters: {
       page?: number;
@@ -242,9 +242,7 @@ class CampaignsService {
   }
 
   // Helper para calcular audiencia objetivo
-  async calculateTargetAudience(
-    criteria: Campaign["targetCriteria"]
-  ): Promise<{
+  async calculateTargetAudience(criteria: Campaign["targetCriteria"]): Promise<{
     count: number;
     preview: Array<{ firstName: string; lastName: string; email: string }>;
   }> {
@@ -315,4 +313,5 @@ class CampaignsService {
   }
 }
 
-export const campaignsService = new CampaignsService();
+// ✅ CORREGIDO: Nombre de exportación corregido
+export const campaignService = new CampaignService();

@@ -8,32 +8,31 @@ const router = Router();
 
 // Validation schemas
 const registerSchema = z.object({
-  body: z.object({
-    email: z.string().email("Invalid email"),
-    firstName: z.string().min(1, "First name is required"),
-    lastName: z.string().min(1, "Last name is required"),
-    firebaseUid: z.string().min(1, "Firebase UID is required"),
-    role: z
-      .enum(["ADMIN", "MANAGER", "AGENT", "VIEWER"])
-      .optional()
-      .default("AGENT"),
-  }),
+  email: z.string().email("Invalid email"),
+  firstName: z.string().min(1, "First name is required").optional(),
+  lastName: z.string().min(1, "Last name is required").optional(),
+  firebaseUid: z.string().min(1, "Firebase UID is required"),
+  role: z
+    .enum(["ADMIN", "MANAGER", "AGENT", "VIEWER"])
+    .optional()
+    .default("AGENT"),
 });
 
 const updateProfileSchema = z.object({
-  body: z.object({
-    firstName: z.string().min(1).optional(),
-    lastName: z.string().min(1).optional(),
-    phone: z.string().optional(),
-    timezone: z.string().optional(),
-  }),
+  firstName: z.string().min(1).optional(),
+  lastName: z.string().min(1).optional(),
+  phone: z.string().optional(),
+  timezone: z.string().optional(),
 });
 
 // Public routes
+router.post("/register", validateBody(registerSchema), authController.register);
+
+// Nueva ruta combinada para login/registro (RECOMENDADA)
 router.post(
-  "/register",
-  validateBody(registerSchema.shape.body),
-  authController.register
+  "/login-or-register",
+  validateBody(registerSchema),
+  authController.loginOrRegister
 );
 
 router.get("/verify-token", optionalAuth, authController.verifyToken);
@@ -44,7 +43,7 @@ router.use(authenticate);
 router.get("/me", authController.getCurrentUser);
 router.put(
   "/profile",
-  validateBody(updateProfileSchema.shape.body),
+  validateBody(updateProfileSchema),
   authController.updateProfile
 );
 router.post("/logout", authController.logout);

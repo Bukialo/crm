@@ -44,6 +44,12 @@ const triggerIcons = {
   SEASONAL_OPPORTUNITY: Calendar,
   BIRTHDAY: Gift,
   CUSTOM: Settings,
+  TRIP_BOOKED: FileText,
+  PAYMENT_RECEIVED: CheckCircle,
+  EMAIL_OPENED: FileText,
+  FORM_SUBMITTED: FileText,
+  DATE_REACHED: Calendar,
+  STATUS_CHANGED: Users,
 };
 
 export const AutomationCard = ({
@@ -58,7 +64,7 @@ export const AutomationCard = ({
 
   const triggerConfig = automationService.getTriggerTypeConfig();
   const config = triggerConfig[automation.triggerType];
-  const TriggerIcon = triggerIcons[automation.triggerType];
+  const TriggerIcon = triggerIcons[automation.triggerType] || Settings;
 
   const recentExecution = automation.executions?.[0];
   const executionStatusConfig = automationService.getExecutionStatusConfig();
@@ -75,18 +81,18 @@ export const AutomationCard = ({
   const getSuccessRate = () => {
     if (!automation.executions || automation.executions.length === 0) return 0;
     const successful = automation.executions.filter(
-      (e) => e.status === "completed"
+      (e) => e.status === "COMPLETED"
     ).length;
     return Math.round((successful / automation.executions.length) * 100);
   };
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case "completed":
+      case "COMPLETED":
         return "text-green-400";
-      case "failed":
+      case "FAILED":
         return "text-red-400";
-      case "running":
+      case "RUNNING":
         return "text-blue-400";
       default:
         return "text-gray-400";
@@ -241,13 +247,13 @@ export const AutomationCard = ({
           <div className="p-3 glass rounded-lg mb-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                {recentExecution.status === "completed" && (
+                {recentExecution.status === "COMPLETED" && (
                   <CheckCircle className="w-4 h-4 text-green-400" />
                 )}
-                {recentExecution.status === "failed" && (
+                {recentExecution.status === "FAILED" && (
                   <XCircle className="w-4 h-4 text-red-400" />
                 )}
-                {recentExecution.status === "running" && (
+                {recentExecution.status === "RUNNING" && (
                   <Clock className="w-4 h-4 text-blue-400 animate-spin" />
                 )}
                 <span
@@ -261,7 +267,7 @@ export const AutomationCard = ({
                 </span>
               </div>
               <span className="text-xs text-white/40">
-                {formatDistanceToNow(new Date(recentExecution.startedAt), {
+                {formatDistanceToNow(new Date(recentExecution.triggeredAt), {
                   addSuffix: true,
                   locale: es,
                 })}

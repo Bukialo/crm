@@ -1,9 +1,8 @@
 import { useState } from "react";
 import { Mail, Edit, Trash2, Copy, BarChart, Plus } from "lucide-react";
-import Card, { CardContent, CardHeader, CardTitle } from "../ui/Card";
+import Card, { CardContent } from "../ui/Card";
 import Button from "../ui/Button";
 import { EmailTemplate } from "../../services/email.service";
-import { emailService } from "../../services/email.service";
 import { clsx } from "clsx";
 
 interface EmailTemplateListProps {
@@ -15,6 +14,16 @@ interface EmailTemplateListProps {
   onUseTemplate: (template: EmailTemplate) => void;
 }
 
+// Moved categories to component level
+const categories = [
+  { value: "all", label: "Todas", icon: "📧" },
+  { value: "WELCOME", label: "Bienvenida", icon: "👋" },
+  { value: "QUOTE", label: "Cotización", icon: "📋" },
+  { value: "FOLLOW_UP", label: "Seguimiento", icon: "📞" },
+  { value: "SEASONAL", label: "Temporada", icon: "🌟" },
+  { value: "POST_TRIP", label: "Post-viaje", icon: "✈️" },
+];
+
 export const EmailTemplateList = ({
   templates,
   isLoading,
@@ -24,7 +33,6 @@ export const EmailTemplateList = ({
   onUseTemplate,
 }: EmailTemplateListProps) => {
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
-  const categories = emailService.getTemplateCategories();
 
   const filteredTemplates =
     selectedCategory === "all"
@@ -62,7 +70,7 @@ export const EmailTemplateList = ({
         >
           Todas
         </button>
-        {categories.map((category) => (
+        {categories.slice(1).map((category) => (
           <button
             key={category.value}
             onClick={() => setSelectedCategory(category.value)}
@@ -120,15 +128,9 @@ export const EmailTemplateList = ({
                       </p>
                     </div>
                   </div>
-                  {template.isActive ? (
-                    <span className="px-2 py-1 text-xs rounded-full bg-green-500/20 text-green-300">
-                      Activa
-                    </span>
-                  ) : (
-                    <span className="px-2 py-1 text-xs rounded-full bg-red-500/20 text-red-300">
-                      Inactiva
-                    </span>
-                  )}
+                  <span className="px-2 py-1 text-xs rounded-full bg-green-500/20 text-green-300">
+                    Activa
+                  </span>
                 </div>
 
                 <p className="text-sm text-white/80 mb-3 line-clamp-2">
@@ -137,11 +139,15 @@ export const EmailTemplateList = ({
 
                 <div className="flex items-center gap-3 text-xs text-white/60 mb-4">
                   <span className="flex items-center gap-1">
-                    <BarChart className="w-3 h-3" />
-                    {template.usageCount} usos
+                    <BarChart className="w-3 h-3" />0 usos
                   </span>
                   <span>•</span>
-                  <span>{template.variables.length} variables</span>
+                  <span>
+                    {Array.isArray(template.variables)
+                      ? template.variables.length
+                      : 0}{" "}
+                    variables
+                  </span>
                 </div>
 
                 <div className="flex items-center gap-2">

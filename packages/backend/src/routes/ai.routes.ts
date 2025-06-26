@@ -1,6 +1,6 @@
-import { Router } from "express";
+import { Router, Request, Response } from "express";
 import { aiController } from "../controllers/ai.controller";
-import { authenticate, optionalAuth } from "../middlewares/auth.middleware";
+import { authenticate } from "../middlewares/auth.middleware"; // Removido optionalAuth no usado
 import { validateBody } from "../middlewares/validation.middleware";
 import { z } from "zod";
 
@@ -8,25 +8,28 @@ const router = Router();
 
 // Validation schemas
 const querySchema = z.object({
-  body: z.object({
-    query: z.string().min(1, "La consulta no puede estar vacía"),
-    context: z
-      .object({
-        currentPage: z.string().optional(),
-        selectedContactId: z.string().optional(),
-        dateRange: z
-          .object({
-            from: z.coerce.date(),
-            to: z.coerce.date(),
-          })
-          .optional(),
-      })
-      .optional(),
-  }),
+  query: z.string().min(1, "La consulta no puede estar vacía"),
+  context: z
+    .object({
+      currentPage: z.string().optional(),
+      selectedContactId: z.string().optional(),
+      dateRange: z
+        .object({
+          from: z.coerce.date(),
+          to: z.coerce.date(),
+        })
+        .optional(),
+    })
+    .optional(),
 });
 
+// ========================================
+// ENDPOINTS PÚBLICOS (SIN AUTENTICACIÓN)
+// ========================================
+
 // Sugerencias contextuales endpoint público
-router.get("/suggestions", (req, res) => {
+router.get("/suggestions", (_req: Request, res: Response): void => {
+  // Agregado underscore para req no usado
   const contextualSuggestions = [
     "¿Cuántos contactos nuevos tuvimos este mes?",
     "Muéstrame los destinos más populares",
@@ -55,7 +58,8 @@ router.get("/suggestions", (req, res) => {
 });
 
 // Endpoint para obtener el estado del servicio AI
-router.get("/status", (req, res) => {
+router.get("/status", (_req: Request, res: Response): void => {
+  // Agregado underscore para req no usado
   res.json({
     success: true,
     data: {
@@ -77,7 +81,6 @@ router.get("/status", (req, res) => {
           "GET /api/ai/status",
           "GET /api/ai/insights",
           "GET /api/ai/suggestions",
-          "GET /api/ai/chat-history",
           "POST /api/ai/query",
         ],
         protected: [
@@ -97,23 +100,22 @@ router.get("/status", (req, res) => {
   });
 });
 
-// ========================================
-// ENDPOINTS PÚBLICOS (SIN AUTENTICACIÓN)
-// ========================================
-
 // Test endpoint público
-router.get("/test", (req, res) => {
+router.get("/test", (_req: Request, res: Response): void => {
+  // Agregado underscore para req no usado
   res.json({
     success: true,
     message: "AI service is working",
     timestamp: new Date().toISOString(),
     auth: "not required for this endpoint",
     server: "bukialo-crm",
+    cors: "enabled",
   });
 });
 
 // Info del servicio AI (público)
-router.get("/", (req, res) => {
+router.get("/", (_req: Request, res: Response): void => {
+  // Agregado underscore para req no usado
   res.json({
     service: "Bukialo AI Assistant",
     version: "1.0.0",
@@ -127,35 +129,38 @@ router.get("/", (req, res) => {
     endpoints: {
       test: "GET /api/ai/test (public)",
       query: "POST /api/ai/query (public for testing)",
-      chatHistory: "GET /api/ai/chat-history (requires auth)",
-      insights: "GET /api/ai/insights (requires auth)",
+      chatHistory: "GET /api/ai/chat-history (public demo)",
+      insights: "GET /api/ai/insights (public demo)",
     },
     timestamp: new Date().toISOString(),
   });
 });
 
-// Query endpoint PÚBLICO para testing
-router.post("/query", (req, res) => {
+// Query endpoint PÚBLICO para testing - SIN VALIDACIÓN ESTRICTA
+router.post("/query", (req: Request, res: Response): void => {
   try {
-    const { query, context } = req.body;
+    const { query } = req.body; // Removido context no usado
 
-    if (!query || query.trim().length === 0) {
-      return res.status(400).json({
+    if (!query || typeof query !== "string" || query.trim().length === 0) {
+      res.status(400).json({
         success: false,
-        error: "Query is required",
+        error: "Query is required and must be a non-empty string",
       });
+      return;
     }
 
     // Simulamos respuesta de IA sin requerir autenticación
-    const mockResponses = {
+    const mockResponses: Record<string, string> = {
       contactos:
-        "Actualmente tienes contactos registrados en el sistema. Para ver detalles específicos, necesitarías autenticarte.",
+        "Actualmente el sistema gestiona contactos en diferentes estados. Para ver detalles específicos, necesitarías autenticarte.",
       viajes:
         "El sistema gestiona viajes en diferentes estados: cotizaciones, reservados, confirmados y completados.",
       ventas:
         "Las métricas de ventas incluyen ingresos mensuales, tasa de conversión y rendimiento por agente.",
       estadísticas:
-        "El dashboard muestra estadísticas en tiempo real de contactos, viajes y ingresos.",
+        "El dashboard muestra estadísticas en tiempo real de contactos, viajes e ingresos.",
+      dashboard:
+        "El dashboard principal muestra un resumen de todas las métricas importantes del CRM.",
       ayuda:
         "Soy tu asistente de IA para Bukialo CRM. Puedo ayudarte con consultas sobre contactos, viajes, ventas y análisis de datos.",
     };
@@ -172,7 +177,7 @@ router.post("/query", (req, res) => {
     }
 
     if (content === "Hola! Soy tu asistente de IA para Bukialo CRM. ") {
-      content += `Recibí tu consulta: "${query}". El sistema está funcionando correctamente. Para obtener datos específicos de tu CRM, necesitarás autenticarte.`;
+      content += `Recibí tu consulta: "${query}". El sistema está funcionando correctamente. Para obtener datos específicos de tu CRM, necesitarás autenticarte usando Firebase.`;
     }
 
     const response = {
@@ -218,25 +223,28 @@ router.post("/query", (req, res) => {
       success: false,
       error: "Error procesando la consulta",
       message: error.message,
+      timestamp: new Date().toISOString(),
     });
   }
 });
 
 // Chat history público (vacío)
-router.get("/chat-history", (req, res) => {
+router.get("/chat-history", (req: Request, res: Response): void => {
   const limit = parseInt(req.query.limit as string) || 50;
 
   res.json({
     success: true,
     data: [],
     limit,
-    message: "Chat history (requires authentication for real data)",
+    message: "Chat history (demo mode - requires authentication for real data)",
     authenticated: false,
+    note: "This is a demo endpoint. Real chat history requires authentication.",
   });
 });
 
 // Insights endpoint público (datos de ejemplo)
-router.get("/insights", (req, res) => {
+router.get("/insights", (_req: Request, res: Response): void => {
+  // Agregado underscore para req no usado
   // Datos de ejemplo para insights
   const mockInsights = [
     {
@@ -352,6 +360,7 @@ router.get("/insights", (req, res) => {
     timestamp: new Date().toISOString(),
     generatedAt: new Date().toISOString(),
     refreshIn: "1 hour",
+    note: "This is demo data. Real insights require authentication.",
   });
 });
 
@@ -359,13 +368,11 @@ router.get("/insights", (req, res) => {
 // ENDPOINTS PROTEGIDOS (CON AUTENTICACIÓN)
 // ========================================
 
-// Endpoints que requieren autenticación
-router.use("/secure/*", authenticate);
-
 // Query autenticado (con datos reales)
 router.post(
   "/secure/query",
-  validateBody(querySchema.shape.body),
+  authenticate,
+  validateBody(querySchema),
   aiController.query
 );
 

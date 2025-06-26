@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { Router, Request, Response } from "express";
 import contactRoutes from "./contact.routes";
 import aiRoutes from "./ai.routes";
 import emailRoutes from "./email.routes";
@@ -7,12 +7,12 @@ import automationRoutes from "./automation.routes";
 import dashboardRoutes from "./dashboard.routes";
 import campaignRoutes from "./campaign.routes";
 import tripRoutes from "./trip.routes";
-import authRoutes from "./auth.routes"; // ← Nueva ruta de autenticación
+import authRoutes from "./auth.routes";
 
 const router = Router();
 
 // API info endpoint
-router.get("/", (req, res) => {
+router.get("/", (_req: Request, res: Response): void => {
   res.json({
     name: "Bukialo CRM API",
     version: "1.0.0",
@@ -20,7 +20,7 @@ router.get("/", (req, res) => {
     status: "online",
     timestamp: new Date().toISOString(),
     endpoints: {
-      auth: "/api/auth", // ← Nueva ruta
+      auth: "/api/auth",
       dashboard: "/api/dashboard",
       contacts: "/api/contacts",
       trips: "/api/trips",
@@ -35,7 +35,7 @@ router.get("/", (req, res) => {
 });
 
 // Mount routes
-router.use("/auth", authRoutes); // ← Nueva ruta de autenticación
+router.use("/auth", authRoutes);
 router.use("/dashboard", dashboardRoutes);
 router.use("/contacts", contactRoutes);
 router.use("/trips", tripRoutes);

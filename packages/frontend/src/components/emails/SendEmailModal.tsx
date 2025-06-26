@@ -1,357 +1,299 @@
-import { useState, useEffect } from "react";
-import { X, Send, Users, Calendar, Eye } from "lucide-react";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
+import React, { useState, useEffect } from "react";
+import { X, Send, Mail, User } from "lucide-react";
+import { EmailTemplate } from "../../services/email.service";
+import { EmailTemplateHelper } from "../../utils/emailTemplateHelper";
+import Card, { CardContent, CardHeader, CardTitle } from "../ui/Card";
 import Button from "../ui/Button";
-import Card from "../ui/Card";
 import Input from "../ui/Input";
-import { EmailTemplate, SendEmailRequest } from "../../services/email.service";
-import { Contact } from "../../services/contacts.service";
-import { ContactStatusBadge } from "../contacts/ContactStatusBadge";
-import { EmailPreview } from "./EmailPreview";
 
-const sendEmailSchema = z.object({
-  recipients: z
-    .array(z.string().email())
-    .min(1, "Selecciona al menos un destinatario"),
-  subject: z.string().min(1, "El asunto es requerido"),
-  htmlContent: z.string().min(1, "El contenido es requerido"),
-  scheduledAt: z.string().optional(),
-  trackOpens: z.boolean().default(true),
-  trackClicks: z.boolean().default(true),
-});
-
-type SendEmailForm = z.infer<typeof sendEmailSchema>;
-
-interface SendEmailModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onSend: (request: SendEmailRequest) => Promise<void>;
-  template?: EmailTemplate;
-  preselectedContacts?: Contact[];
-  availableContacts: Contact[];
+interface SendEmailRequest {
+  to: string;
+  subject: string;
+  htmlContent: string;
+  templateId?: string;
 }
 
-export const SendEmailModal = ({
+interface SendEmailModalProps {
+  template?: EmailTemplate | null;
+  contactEmail?: string;
+  isOpen: boolean;
+  onClose: () => void;
+  onSend: (emailData: SendEmailRequest) => Promise<void>;
+  isLoading?: boolean;
+}
+
+export const SendEmailModal: React.FC<SendEmailModalProps> = ({
+  template,
+  contactEmail = "",
   isOpen,
   onClose,
   onSend,
-  template,
-  preselectedContacts = [],
-  availableContacts,
-}: SendEmailModalProps) => {
-  const [selectedContacts, setSelectedContacts] =
-    useState<Contact[]>(preselectedContacts);
-  const [showPreview, setShowPreview] = useState(false);
-  const [variableValues, setVariableValues] = useState<Record<string, any>>({});
-  const [isLoading, setIsLoading] = useState(false);
-
-  const {
-    register,
-    handleSubmit,
-    watch,
-    setValue,
-    formState: { errors },
-  } = useForm<SendEmailForm>({
-    resolver: zodResolver(sendEmailSchema),
-    defaultValues: {
-      subject: template?.subject || "",
-      htmlContent: template?.htmlContent || "",
-      trackOpens: true,
-      trackClicks: true,
-    },
+  isLoading = false,
+}) => {
+  const [formData, setFormData] = useState({
+    to: "",
+    subject: "",
+    htmlContent: "",
+    personalizeWithAI: false,
   });
 
-  const watchedContent = watch("htmlContent");
-  const watchedSubject = watch("subject");
+  const [showPreview, setShowPreview] = useState(false);
 
   useEffect(() => {
     if (template) {
-      setValue("subject", template.subject);
-      setValue("htmlContent", template.htmlContent);
+      setFormData((prev) => ({
+        ...prev,
+        subject: template.subject,
+        htmlContent: template.htmlContent,
+      }));
     }
-  }, [template, setValue]);
 
-  useEffect(() => {
-    setValue(
-      "recipients",
-      selectedContacts.map((c) => c.email)
-    );
-  }, [selectedContacts, setValue]);
+    if (contactEmail) {
+      setFormData((prev) => ({ ...prev, to: contactEmail }));
+    }
+  }, [template, contactEmail]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    const emailData: SendEmailRequest = {
+      to: formData.to,
+      subject: formData.subject,
+      htmlContent: formData.htmlContent,
+      templateId: template?.id,
+    };
+
+    await onSend(emailData);
+    onClose();
+  };
+
+  const getPreviewContent = () => {
+    // Generate preview with sample data
+    return EmailTemplateHelper.generatePreview(formData.htmlContent);
+  };
+
+  const getPreviewSubject = () => {
+    return EmailTemplateHelper.generatePreview(formData.subject);
+  };
 
   if (!isOpen) return null;
 
-  const handleContactToggle = (contact: Contact) => {
-    setSelectedContacts((prev) => {
-      const exists = prev.find((c) => c.id === contact.id);
-      if (exists) {
-        return prev.filter((c) => c.id !== contact.id);
-      } else {
-        return [...prev, contact];
-      }
-    });
-  };
-
-  const handleSelectAll = () => {
-    setSelectedContacts(availableContacts);
-  };
-
-  const handleDeselectAll = () => {
-    setSelectedContacts([]);
-  };
-
-  const onSubmit = async (data: SendEmailForm) => {
-    setIsLoading(true);
-    try {
-      // Procesar contenido con variables
-      let processedContent = data.htmlContent;
-      let processedSubject = data.subject;
-
-      if (template?.variables) {
-        template.variables.forEach((variable) => {
-          const value = variableValues[variable.name] || `{{${variable.name}}}`;
-          const regex = new RegExp(`{{${variable.name}}}`, "g");
-          processedContent = processedContent.replace(regex, String(value));
-          processedSubject = processedSubject.replace(regex, String(value));
-        });
-      }
-
-      const request: SendEmailRequest = {
-        to: data.recipients,
-        templateId: template?.id,
-        subject: processedSubject,
-        htmlContent: processedContent,
-        scheduledAt: data.scheduledAt,
-        trackOpens: data.trackOpens,
-        trackClicks: data.trackClicks,
-        variables: variableValues,
-      };
-
-      await onSend(request);
-      onClose();
-    } catch (error) {
-      console.error("Error sending email:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   return (
-    <>
-      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-        <Card className="w-full max-w-6xl h-[90vh] overflow-hidden flex flex-col">
-          {/* Header */}
-          <div className="flex items-center justify-between p-6 border-b border-white/10">
-            <h2 className="text-2xl font-bold text-white">Enviar Email</h2>
-            <div className="flex gap-2">
-              <Button
-                variant="glass"
-                size="sm"
-                onClick={() => setShowPreview(true)}
-                leftIcon={<Eye className="w-4 h-4" />}
-              >
-                Vista Previa
-              </Button>
-              <Button
-                variant="glass"
-                size="sm"
-                onClick={onClose}
-                leftIcon={<X className="w-4 h-4" />}
-              >
-                Cancelar
-              </Button>
-            </div>
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <Card className="w-full max-w-4xl max-h-[90vh] overflow-hidden">
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle className="flex items-center gap-2">
+            <Mail className="w-5 h-5" />
+            Enviar Email
+          </CardTitle>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowPreview(!showPreview)}
+            >
+              {showPreview ? "Editor" : "Vista Previa"}
+            </Button>
+            <Button variant="ghost" size="sm" onClick={onClose}>
+              <X className="w-4 h-4" />
+            </Button>
           </div>
+        </CardHeader>
 
-          <form
-            onSubmit={handleSubmit(onSubmit)}
-            className="flex-1 flex overflow-hidden"
-          >
-            <div className="flex-1 flex overflow-hidden">
-              {/* Recipients Sidebar */}
-              <div className="w-80 border-r border-white/10 p-6 overflow-y-auto">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-medium text-white">
-                    Destinatarios ({selectedContacts.length})
-                  </h3>
-                  <div className="flex gap-1">
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="glass"
-                      onClick={handleSelectAll}
-                    >
-                      Todos
-                    </Button>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="glass"
-                      onClick={handleDeselectAll}
-                    >
-                      Ninguno
-                    </Button>
-                  </div>
-                </div>
+        <CardContent className="overflow-y-auto max-h-[calc(90vh-120px)]">
+          {!showPreview ? (
+            <form onSubmit={handleSubmit} className="space-y-6">
+              {/* Email Details */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Input
+                  label="Destinatario"
+                  type="email"
+                  value={formData.to}
+                  onChange={(e) =>
+                    setFormData((prev) => ({ ...prev, to: e.target.value }))
+                  }
+                  placeholder="cliente@email.com"
+                  leftIcon={<User className="w-4 h-4" />}
+                  required
+                />
 
-                <div className="space-y-2">
-                  {availableContacts.map((contact) => {
-                    const isSelected = selectedContacts.find(
-                      (c) => c.id === contact.id
-                    );
-                    return (
-                      <div
-                        key={contact.id}
-                        className={`p-3 rounded-lg border transition-all cursor-pointer ${
-                          isSelected
-                            ? "bg-primary-500/20 border-primary-500/30"
-                            : "glass border-white/10 hover:border-white/20"
-                        }`}
-                        onClick={() => handleContactToggle(contact)}
-                      >
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="font-medium text-white">
-                              {contact.firstName} {contact.lastName}
-                            </p>
-                            <p className="text-sm text-white/60">
-                              {contact.email}
-                            </p>
-                          </div>
-                          <ContactStatusBadge
-                            status={contact.status}
-                            size="sm"
-                          />
-                        </div>
+                {template && (
+                  <div>
+                    <label className="block text-sm font-medium mb-2">
+                      Template
+                    </label>
+                    <div className="p-3 bg-gray-100 dark:bg-gray-800 rounded-lg">
+                      <div className="text-sm font-medium">{template.name}</div>
+                      <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                        {template.category}
                       </div>
-                    );
-                  })}
-                </div>
-
-                {errors.recipients && (
-                  <p className="text-red-400 text-sm mt-2">
-                    {errors.recipients.message}
-                  </p>
+                    </div>
+                  </div>
                 )}
               </div>
 
-              {/* Email Content */}
-              <div className="flex-1 flex flex-col p-6">
-                <div className="space-y-4 mb-6">
-                  <Input
-                    {...register("subject")}
-                    label="Asunto"
-                    placeholder="Asunto del email"
-                    error={errors.subject?.message}
+              <Input
+                label="Asunto"
+                value={formData.subject}
+                onChange={(e) =>
+                  setFormData((prev) => ({ ...prev, subject: e.target.value }))
+                }
+                placeholder="Asunto del email"
+                required
+              />
+
+              <div>
+                <label className="block text-sm font-medium mb-2">
+                  Contenido del Email
+                </label>
+                <textarea
+                  value={formData.htmlContent}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      htmlContent: e.target.value,
+                    }))
+                  }
+                  className="w-full h-64 input-glass resize-none font-mono text-sm"
+                  placeholder="Contenido HTML del email..."
+                  required
+                />
+              </div>
+
+              {/* AI Personalization Option */}
+              <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                <div className="flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    checked={formData.personalizeWithAI}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        personalizeWithAI: e.target.checked,
+                      }))
+                    }
+                    className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                   />
+                  <div>
+                    <label className="text-sm font-medium text-blue-900 dark:text-blue-100">
+                      Personalizar con IA
+                    </label>
+                    <p className="text-xs text-blue-700 dark:text-blue-300">
+                      La IA personalizará automáticamente el contenido usando la
+                      información del contacto
+                    </p>
+                  </div>
+                </div>
+              </div>
 
-                  {/* Variables */}
-                  {template?.variables && template.variables.length > 0 && (
-                    <div className="grid grid-cols-2 gap-4">
-                      {template.variables.map((variable) => (
-                        <Input
-                          key={variable.name}
-                          label={`Variable: ${variable.name}`}
-                          value={variableValues[variable.name] || ""}
-                          onChange={(e) =>
-                            setVariableValues({
-                              ...variableValues,
-                              [variable.name]: e.target.value,
-                            })
-                          }
-                          placeholder={`Valor para ${variable.name}`}
-                        />
-                      ))}
+              {/* Variables Help */}
+              <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                <h4 className="text-sm font-medium mb-2">
+                  Variables Disponibles
+                </h4>
+                <div className="flex flex-wrap gap-2 text-xs">
+                  {EmailTemplateHelper.getContactVariables()
+                    .slice(0, 6)
+                    .map((variable) => (
+                      <span
+                        key={variable.key}
+                        className="px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded"
+                      >
+                        {`{{${variable.key}}}`}
+                      </span>
+                    ))}
+                  <span className="px-2 py-1 text-gray-500">...</span>
+                </div>
+                <p className="text-xs text-gray-600 dark:text-gray-400 mt-2">
+                  Usa estas variables para personalizar el contenido. Se
+                  reemplazarán automáticamente con los datos del contacto.
+                </p>
+              </div>
+
+              <div className="flex justify-between pt-6 border-t border-gray-200 dark:border-gray-700">
+                <Button type="button" variant="ghost" onClick={onClose}>
+                  Cancelar
+                </Button>
+
+                <div className="flex gap-3">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setShowPreview(true)}
+                  >
+                    Vista Previa
+                  </Button>
+
+                  <Button
+                    type="submit"
+                    variant="primary"
+                    isLoading={isLoading}
+                    leftIcon={<Send className="w-4 h-4" />}
+                  >
+                    Enviar Email
+                  </Button>
+                </div>
+              </div>
+            </form>
+          ) : (
+            /* Preview Mode */
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-medium">Vista Previa del Email</h3>
+                <Button variant="outline" onClick={() => setShowPreview(false)}>
+                  Volver al Editor
+                </Button>
+              </div>
+
+              {/* Email Preview */}
+              <div className="border border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden">
+                {/* Email Header */}
+                <div className="bg-gray-100 dark:bg-gray-800 p-4 border-b border-gray-300 dark:border-gray-600">
+                  <div className="space-y-2 text-sm">
+                    <div>
+                      <strong>Para:</strong> {formData.to}
                     </div>
-                  )}
-
-                  {/* Scheduling */}
-                  <div className="grid grid-cols-2 gap-4">
-                    <Input
-                      {...register("scheduledAt")}
-                      type="datetime-local"
-                      label="Programar envío (opcional)"
-                    />
-                    <div className="space-y-2">
-                      <label className="block text-sm font-medium text-white/80">
-                        Opciones de seguimiento
-                      </label>
-                      <div className="space-y-1">
-                        <label className="flex items-center">
-                          <input
-                            {...register("trackOpens")}
-                            type="checkbox"
-                            className="w-4 h-4 rounded border-white/20 bg-white/10 text-primary-500 focus:ring-primary-500 focus:ring-offset-0"
-                          />
-                          <span className="ml-2 text-sm text-white/80">
-                            Rastrear aperturas
-                          </span>
-                        </label>
-                        <label className="flex items-center">
-                          <input
-                            {...register("trackClicks")}
-                            type="checkbox"
-                            className="w-4 h-4 rounded border-white/20 bg-white/10 text-primary-500 focus:ring-primary-500 focus:ring-offset-0"
-                          />
-                          <span className="ml-2 text-sm text-white/80">
-                            Rastrear clics
-                          </span>
-                        </label>
-                      </div>
+                    <div>
+                      <strong>Asunto:</strong> {getPreviewSubject()}
                     </div>
                   </div>
                 </div>
 
-                {/* Content Editor */}
-                <div className="flex-1">
-                  <label className="block text-sm font-medium text-white/80 mb-2">
-                    Contenido del Email
-                  </label>
-                  <textarea
-                    {...register("htmlContent")}
-                    className="w-full h-full input-glass resize-none"
-                    placeholder="Contenido del email en HTML..."
-                  />
-                  {errors.htmlContent && (
-                    <p className="text-red-400 text-sm mt-1">
-                      {errors.htmlContent.message}
-                    </p>
-                  )}
+                {/* Email Content */}
+                <div
+                  className="p-4 bg-white dark:bg-gray-900 min-h-[400px] overflow-auto"
+                  dangerouslySetInnerHTML={{ __html: getPreviewContent() }}
+                />
+              </div>
+
+              {/* Preview Actions */}
+              <div className="flex justify-between pt-4 border-t border-gray-200 dark:border-gray-700">
+                <Button type="button" variant="ghost" onClick={onClose}>
+                  Cancelar
+                </Button>
+
+                <div className="flex gap-3">
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowPreview(false)}
+                  >
+                    Editar
+                  </Button>
+
+                  <Button
+                    variant="primary"
+                    onClick={handleSubmit}
+                    isLoading={isLoading}
+                    leftIcon={<Send className="w-4 h-4" />}
+                  >
+                    Enviar Email
+                  </Button>
                 </div>
               </div>
             </div>
-
-            {/* Footer */}
-            <div className="p-6 border-t border-white/10 flex justify-end gap-3">
-              <Button type="button" variant="glass" onClick={onClose}>
-                Cancelar
-              </Button>
-              <Button
-                type="submit"
-                variant="primary"
-                isLoading={isLoading}
-                leftIcon={<Send className="w-4 h-4" />}
-                disabled={selectedContacts.length === 0}
-              >
-                {watchedContent && register("scheduledAt").name
-                  ? "Programar Envío"
-                  : "Enviar Ahora"}
-              </Button>
-            </div>
-          </form>
-        </Card>
-      </div>
-
-      {/* Preview Modal */}
-      {showPreview && (
-        <EmailPreview
-          htmlContent={watchedContent}
-          subject={watchedSubject}
-          variables={template?.variables}
-          onClose={() => setShowPreview(false)}
-        />
-      )}
-    </>
+          )}
+        </CardContent>
+      </Card>
+    </div>
   );
 };

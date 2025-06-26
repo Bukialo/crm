@@ -1,32 +1,38 @@
 import { create } from "zustand";
-import { devtools, persist } from "zustand/middleware";
-import { AuthUser } from "@bukialo/shared";
+import { persist } from "zustand/middleware";
+
+export interface User {
+  id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  firebaseUid: string;
+  role: "ADMIN" | "AGENT" | "VIEWER";
+}
 
 interface AuthState {
-  user: AuthUser | null;
+  user: User | null;
   isLoading: boolean;
-  setUser: (user: AuthUser | null) => void;
+  setUser: (user: User | null) => void;
   setLoading: (loading: boolean) => void;
   logout: () => void;
 }
 
 export const useAuthStore = create<AuthState>()(
-  devtools(
-    persist(
-      (set) => ({
-        user: null,
-        isLoading: true,
-        setUser: (user) => set({ user }),
-        setLoading: (loading) => set({ isLoading: loading }),
-        logout: () => {
-          set({ user: null });
-          localStorage.removeItem("token");
-        },
+  persist(
+    (set) => ({
+      user: null,
+      isLoading: true,
+
+      setUser: (user) => set({ user }),
+      setLoading: (isLoading) => set({ isLoading }),
+      logout: () => set({ user: null, isLoading: false }),
+    }),
+    {
+      name: "auth-storage",
+      partialize: (state) => ({
+        user: state.user,
       }),
-      {
-        name: "auth-storage",
-        partialize: (state) => ({ user: state.user }), // Only persist user
-      }
-    )
+    }
   )
 );

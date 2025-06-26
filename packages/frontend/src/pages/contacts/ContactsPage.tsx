@@ -1,301 +1,317 @@
-import { useState } from "react";
-import { Plus, Download, Upload, Users } from "lucide-react";
-import Card, {
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "../../components/ui/Card";
-import Button from "../../components/ui/Button";
-import { ContactFilters } from "../../components/contacts/ContactFilters";
-import { ContactsTable } from "../../components/contacts/ContactsTable";
-import { ContactForm } from "../../components/contacts/ContactForm";
+// src/pages/contacts/ContactsPage.tsx
+import React, { useState } from "react";
+import { Users, Plus, Filter, Search, Download, Upload } from "lucide-react";
 import { useContacts } from "../../hooks/useContacts";
-import { useContactsStore } from "../../store/contacts.store";
-import { Contact } from "../../services/contacts.service";
-import { contactsService } from "../../services/contacts.service";
-import toast from "react-hot-toast";
+import { ContactCard } from "../../components/contacts/ContactCard";
+import { ContactModal } from "../../components/contacts/ContactModal";
+import { ImportModal } from "../../components/contacts/ImportModal";
+import { Contact } from "../../types/contact.types";
 
-const ContactsPage = () => {
-  const [showForm, setShowForm] = useState(false);
-  const [editingContact, setEditingContact] = useState<Contact | null>(null);
-  const [deletingContact, setDeletingContact] = useState<Contact | null>(null);
+export const ContactsPage: React.FC = () => {
+  const { contacts, isLoading, createContact, updateContact, deleteContact } =
+    useContacts();
 
-  const {
-    contacts,
-    totalContacts,
-    isLoading,
-    createContact,
-    updateContact,
-    updateContactStatus,
-    deleteContact,
-  } = useContacts();
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>("ALL");
 
-  const { currentPage, pageSize, setPage } = useContactsStore();
+  // Filtrar contactos
+  const filteredContacts = contacts.filter((contact: Contact) => {
+    const matchesSearch =
+      contact.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      contact.lastName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      contact.email.toLowerCase().includes(searchTerm.toLowerCase());
 
-  const handleCreateContact = async (data: any) => {
+    const matchesStatus =
+      statusFilter === "ALL" || contact.status === statusFilter;
+
+    return matchesSearch && matchesStatus;
+  });
+
+  const handleCreateContact = async (contactData: Partial<Contact>) => {
     try {
-      await createContact(data);
-      setShowForm(false);
-      setEditingContact(null);
+      await createContact({
+        firstName: contactData.firstName || "",
+        lastName: contactData.lastName || "",
+        email: contactData.email || "",
+        phone: contactData.phone,
+        status: contactData.status || "INTERESADO",
+        source: contactData.source,
+        tags: contactData.tags,
+        travelPreferences: contactData.travelPreferences,
+        birthDate: contactData.birthDate,
+        assignedAgent: contactData.assignedAgent,
+      });
+      setIsModalOpen(false);
     } catch (error) {
-      // Error ya manejado por el hook
+      console.error("Error creating contact:", error);
     }
   };
 
-  const handleUpdateContact = async (data: any) => {
-    if (!editingContact) return;
-
+  const handleUpdateContact = async (contactData: Partial<Contact>) => {
     try {
-      await updateContact({ id: editingContact.id, data });
-      setShowForm(false);
-      setEditingContact(null);
+      if (selectedContact) {
+        await updateContact({
+          id: selectedContact.id,
+          data: {
+            firstName: contactData.firstName || selectedContact.firstName,
+            lastName: contactData.lastName || selectedContact.lastName,
+            email: contactData.email || selectedContact.email,
+            phone: contactData.phone,
+            status: contactData.status || selectedContact.status,
+            source: contactData.source,
+            tags: contactData.tags,
+            travelPreferences: contactData.travelPreferences,
+            birthDate: contactData.birthDate,
+            assignedAgent: contactData.assignedAgent,
+          },
+        });
+        setSelectedContact(null);
+        setIsModalOpen(false);
+      }
     } catch (error) {
-      // Error ya manejado por el hook
+      console.error("Error updating contact:", error);
     }
   };
 
-  const handleStatusChange = async (
-    contact: Contact,
-    newStatus: Contact["status"]
-  ) => {
+  const handleImportContacts = async (file: File) => {
     try {
-      await updateContactStatus({ id: contact.id, status: newStatus });
+      // Esta función se implementará en el hook useContacts
+      console.log("Importing file:", file.name);
+      // await importContacts(file);
+      setIsImportModalOpen(false);
     } catch (error) {
-      // Error ya manejado por el hook
+      console.error("Error importing contacts:", error);
     }
   };
 
-  const handleDeleteContact = async () => {
-    if (!deletingContact) return;
+  const openEditModal = (contact: Contact) => {
+    setSelectedContact(contact);
+    setIsModalOpen(true);
+  };
 
+  const openCreateModal = () => {
+    setSelectedContact(null);
+    setIsModalOpen(true);
+  };
+
+  const exportContacts = () => {
+    const csv = [
+      // Headers
+      "firstName,lastName,email,phone,status,createdAt",
+      // Data
+      ...contacts.map(
+        (contact: Contact) =>
+          `${contact.firstName},${contact.lastName},${contact.email},${contact.phone || ""},${contact.status},${contact.createdAt}`
+      ),
+    ].join("\n");
+
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "contacts.csv";
+    a.click();
+    window.URL.revokeObjectURL(url);
+  };
+
+  const handleDeleteContact = async (id: string) => {
     try {
-      await deleteContact(deletingContact.id);
-      setDeletingContact(null);
+      await deleteContact(id);
     } catch (error) {
-      // Error ya manejado por el hook
+      console.error("Error deleting contact:", error);
     }
   };
 
-  const handleExport = async () => {
-    try {
-      const blob = await contactsService.exportContacts(
-        useContactsStore.getState().filters,
-        "csv"
-      );
-
-      // Descargar archivo
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `contactos_${new Date().toISOString().split("T")[0]}.csv`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-
-      toast.success("Contactos exportados exitosamente");
-    } catch (error) {
-      toast.error("Error al exportar contactos");
-    }
-  };
-
-  const handleEdit = (contact: Contact) => {
-    setEditingContact(contact);
-    setShowForm(true);
-  };
-
-  const totalPages = Math.ceil(totalContacts / pageSize);
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
-      {/* Page Header */}
-      <div className="flex items-center justify-between">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-white mb-2">Contactos</h1>
-          <p className="text-white/60">{totalContacts} contactos en total</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+            Contactos
+          </h1>
+          <p className="text-gray-600 dark:text-gray-400">
+            Gestiona tus contactos y leads de viajes
+          </p>
         </div>
-        <div className="flex gap-3">
-          <Button
-            variant="glass"
-            leftIcon={<Upload className="w-5 h-5" />}
-            disabled
+
+        <div className="flex gap-2">
+          <button
+            onClick={() => setIsImportModalOpen(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
           >
+            <Upload className="w-4 h-4" />
             Importar
-          </Button>
-          <Button
-            variant="glass"
-            leftIcon={<Download className="w-5 h-5" />}
-            onClick={handleExport}
+          </button>
+
+          <button
+            onClick={exportContacts}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
           >
+            <Download className="w-4 h-4" />
             Exportar
-          </Button>
-          <Button
-            variant="primary"
-            leftIcon={<Plus className="w-5 h-5" />}
-            onClick={() => setShowForm(true)}
+          </button>
+
+          <button
+            onClick={openCreateModal}
+            className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
           >
+            <Plus className="w-4 h-4" />
             Nuevo Contacto
-          </Button>
+          </button>
         </div>
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-white/60 mb-1">Interesados</p>
-                <p className="text-2xl font-bold text-white">
-                  {contacts.filter((c) => c.status === "INTERESADO").length}
-                </p>
-              </div>
-              <div className="p-3 rounded-xl bg-blue-500/20">
-                <Users className="w-6 h-6 text-blue-400" />
-              </div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                Interesados
+              </p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                {/* Corregido: Especificar tipo del parámetro */}
+                {
+                  contacts.filter((c: Contact) => c.status === "INTERESADO")
+                    .length
+                }
+              </p>
             </div>
-          </CardContent>
-        </Card>
+            <div className="h-12 w-12 bg-yellow-100 dark:bg-yellow-900/20 rounded-lg flex items-center justify-center">
+              <Users className="w-6 h-6 text-yellow-600 dark:text-yellow-400" />
+            </div>
+          </div>
+        </div>
 
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-white/60 mb-1">Pasajeros</p>
-                <p className="text-2xl font-bold text-white">
-                  {contacts.filter((c) => c.status === "PASAJERO").length}
-                </p>
-              </div>
-              <div className="p-3 rounded-xl bg-amber-500/20">
-                <Users className="w-6 h-6 text-amber-400" />
-              </div>
+        <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                Pasajeros
+              </p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                {/* Corregido: Especificar tipo del parámetro */}
+                {
+                  contacts.filter((c: Contact) => c.status === "PASAJERO")
+                    .length
+                }
+              </p>
             </div>
-          </CardContent>
-        </Card>
+            <div className="h-12 w-12 bg-blue-100 dark:bg-blue-900/20 rounded-lg flex items-center justify-center">
+              <Users className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+            </div>
+          </div>
+        </div>
 
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-white/60 mb-1">Clientes</p>
-                <p className="text-2xl font-bold text-white">
-                  {contacts.filter((c) => c.status === "CLIENTE").length}
-                </p>
-              </div>
-              <div className="p-3 rounded-xl bg-green-500/20">
-                <Users className="w-6 h-6 text-green-400" />
-              </div>
+        <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                Clientes
+              </p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                {/* Corregido: Especificar tipo del parámetro */}
+                {contacts.filter((c: Contact) => c.status === "CLIENTE").length}
+              </p>
             </div>
-          </CardContent>
-        </Card>
+            <div className="h-12 w-12 bg-green-100 dark:bg-green-900/20 rounded-lg flex items-center justify-center">
+              <Users className="w-6 h-6 text-green-600 dark:text-green-400" />
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Filters */}
-      <ContactFilters />
-
-      {/* Contacts Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Lista de Contactos</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ContactsTable
-            contacts={contacts}
-            isLoading={isLoading}
-            onEdit={handleEdit}
-            onDelete={setDeletingContact}
-            onStatusChange={handleStatusChange}
+      <div className="flex flex-col sm:flex-row gap-4">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+          <input
+            type="text"
+            placeholder="Buscar contactos..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
           />
+        </div>
 
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="flex items-center justify-center gap-2 mt-6">
-              <Button
-                variant="glass"
-                size="sm"
-                onClick={() => setPage(currentPage - 1)}
-                disabled={currentPage === 1}
-              >
-                Anterior
-              </Button>
+        <div className="flex items-center gap-2">
+          <Filter className="w-4 h-4 text-gray-400" />
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+          >
+            <option value="ALL">Todos los estados</option>
+            <option value="INTERESADO">Interesados</option>
+            <option value="PASAJERO">Pasajeros</option>
+            <option value="CLIENTE">Clientes</option>
+          </select>
+        </div>
+      </div>
 
-              <div className="flex gap-1">
-                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                  const pageNum = i + 1;
-                  return (
-                    <button
-                      key={pageNum}
-                      onClick={() => setPage(pageNum)}
-                      className={`w-8 h-8 rounded-lg transition-all ${
-                        currentPage === pageNum
-                          ? "bg-primary-500 text-white"
-                          : "glass text-white/60 hover:text-white"
-                      }`}
-                    >
-                      {pageNum}
-                    </button>
-                  );
-                })}
-              </div>
+      {/* Contacts Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {filteredContacts.map((contact: Contact) => (
+          <ContactCard
+            key={contact.id}
+            contact={contact}
+            onEdit={openEditModal}
+            onDelete={handleDeleteContact}
+          />
+        ))}
+      </div>
 
-              <Button
-                variant="glass"
-                size="sm"
-                onClick={() => setPage(currentPage + 1)}
-                disabled={currentPage === totalPages}
-              >
-                Siguiente
-              </Button>
-            </div>
+      {filteredContacts.length === 0 && (
+        <div className="text-center py-12">
+          <Users className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+            No hay contactos
+          </h3>
+          <p className="text-gray-600 dark:text-gray-400 mb-4">
+            {searchTerm || statusFilter !== "ALL"
+              ? "No se encontraron contactos con los filtros aplicados"
+              : "Comienza agregando tu primer contacto"}
+          </p>
+          {!searchTerm && statusFilter === "ALL" && (
+            <button
+              onClick={openCreateModal}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+            >
+              <Plus className="w-4 h-4" />
+              Crear Contacto
+            </button>
           )}
-        </CardContent>
-      </Card>
-
-      {/* Contact Form Modal */}
-      {showForm && (
-        <ContactForm
-          contact={editingContact}
-          onSubmit={editingContact ? handleUpdateContact : handleCreateContact}
-          onCancel={() => {
-            setShowForm(false);
-            setEditingContact(null);
-          }}
-          isLoading={false}
-        />
-      )}
-
-      {/* Delete Confirmation Modal */}
-      {deletingContact && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <Card className="w-full max-w-md">
-            <CardContent className="p-6">
-              <h3 className="text-xl font-bold text-white mb-4">
-                Confirmar Eliminación
-              </h3>
-              <p className="text-white/80 mb-6">
-                ¿Estás seguro de que deseas eliminar a{" "}
-                <span className="font-semibold">
-                  {deletingContact.firstName} {deletingContact.lastName}
-                </span>
-                ? Esta acción no se puede deshacer.
-              </p>
-              <div className="flex justify-end gap-3">
-                <Button
-                  variant="glass"
-                  onClick={() => setDeletingContact(null)}
-                >
-                  Cancelar
-                </Button>
-                <Button variant="danger" onClick={handleDeleteContact}>
-                  Eliminar
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
         </div>
       )}
+
+      {/* Modals */}
+      <ContactModal
+        isOpen={isModalOpen}
+        onClose={() => {
+          setIsModalOpen(false);
+          setSelectedContact(null);
+        }}
+        onSubmit={selectedContact ? handleUpdateContact : handleCreateContact}
+        contact={selectedContact}
+      />
+
+      <ImportModal
+        isOpen={isImportModalOpen}
+        onClose={() => setIsImportModalOpen(false)}
+        onImport={handleImportContacts}
+      />
     </div>
   );
 };
-
-export default ContactsPage;

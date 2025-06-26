@@ -1,5 +1,4 @@
 import axios, { AxiosError } from "axios";
-import { auth } from "./firebase";
 import toast from "react-hot-toast";
 
 // Create axios instance
@@ -8,85 +7,95 @@ const api = axios.create({
   headers: {
     "Content-Type": "application/json",
   },
+  timeout: 15000, // Aumentado el timeout
 });
 
-// Request interceptor to add auth token
+// Request interceptor - MEJORADO
 api.interceptors.request.use(
-  async (config) => {
-    try {
-      const user = auth.currentUser;
-      if (user) {
-        const token = await user.getIdToken();
-        config.headers.Authorization = `Bearer ${token}`;
-      }
-    } catch (error) {
-      console.error("Error getting auth token:", error);
+  (config) => {
+    // ✅ Solo agregar bypass en desarrollo
+    if (import.meta.env.DEV) {
+      config.headers["X-Bypass-Auth"] = "true";
     }
+
+    // Agregar token en producción o si existe
+    const token = localStorage.getItem("token");
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+
+    // ✅ FIX: Limpiar headers undefined
+    Object.keys(config.headers).forEach((key) => {
+      if (config.headers[key] === undefined || config.headers[key] === null) {
+        delete config.headers[key];
+      }
+    });
+
+    console.log("🚀 API Request:", {
+      method: config.method?.toUpperCase(),
+      url: config.url,
+      headers: config.headers,
+      data: config.data ? "✓" : "✗",
+    });
+
     return config;
   },
   (error) => {
+    console.error("❌ Request Error:", error);
     return Promise.reject(error);
   }
 );
 
-// Response interceptor to handle errors
+// Response interceptor - MEJORADO
 api.interceptors.response.use(
-  (response) => response,
-  async (error: AxiosError<any>) => {
-    if (error.response) {
-      const { status, data } = error.response;
+  (response) => {
+    console.log("✅ API Response:", {
+      status: response.status,
+      url: response.config.url,
+      data: response.data?.success ? "✓" : "✗",
+    });
+    return response;
+  },
+  (error: AxiosError<any>) => {
+    const status = error.response?.status;
+    const message =
+      error.response?.data?.error ||
+      error.response?.data?.message ||
+      error.message;
+    const url = error.config?.url;
 
-      switch (status) {
-        case 401:
-          // Token expired or invalid
-          if (auth.currentUser) {
-            try {
-              // Try to refresh the token
-              await auth.currentUser.getIdToken(true);
-              // Retry the original request
-              return api.request(error.config!);
-            } catch (refreshError) {
-              // Refresh failed, logout user
-              await auth.signOut();
-              window.location.href = "/login";
-              toast.error(
-                "Sesión expirada. Por favor, inicia sesión nuevamente."
-              );
-            }
-          }
-          break;
+    console.error("❌ API Error:", {
+      status,
+      message,
+      url,
+      method: error.config?.method?.toUpperCase(),
+    });
 
-        case 403:
-          toast.error("No tienes permisos para realizar esta acción");
-          break;
-
-        case 404:
-          // Don't show toast for 404s, handle in components
-          break;
-
-        case 422:
-        case 400:
-          // Validation errors
-          if (data?.errors) {
-            data.errors.forEach((err: any) => {
-              toast.error(err.message || "Error de validación");
-            });
-          } else {
-            toast.error(data?.error || "Error en la solicitud");
-          }
-          break;
-
-        case 500:
-          toast.error("Error del servidor. Por favor, intenta más tarde.");
-          break;
-
-        default:
-          toast.error(data?.error || "Ha ocurrido un error");
-      }
-    } else if (error.request) {
-      toast.error("No se pudo conectar con el servidor");
-    } else {
-      toast.error("Error al procesar la solicitud");
+    // Manejar errores específicos
+    switch (status) {
+      case 400:
+        console.warn("⚠️ Bad Request:", message);
+        break;
+      case 401:
+        if (import.meta.env.PROD) {
+          toast.error("Sesión expirada");
+          localStorage.removeItem("token");
+          window.location.href = "/login";
+        }
+        break;
+      case 403:
+        toast.error("No tienes permisos para esta acción");
+        break;
+      case 404:
+        console.warn("⚠️ Resource not found:", url);
+        break;
+      case 500:
+        toast.error("Error del servidor. Intenta de nuevo.");
+        break;
+      default:
+        if (status && status >= 400) {
+          toast.error(`Error ${status}: ${message}`);
+        }
     }
 
     return Promise.reject(error);

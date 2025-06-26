@@ -537,10 +537,7 @@ export class CalendarService {
     }
   }
 
-  async generateAIEventSuggestions(
-    contactId: string,
-    userId: string
-  ): Promise<string[]> {
+  async generateAIEventSuggestions(contactId: string): Promise<string[]> {
     try {
       const contact = await prisma.contact.findUnique({
         where: { id: contactId },

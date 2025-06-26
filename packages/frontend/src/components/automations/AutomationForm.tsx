@@ -14,13 +14,13 @@ import Card, { CardContent, CardHeader, CardTitle } from "../ui/Card";
 import Button from "../ui/Button";
 import Input from "../ui/Input";
 import { TriggerBuilder } from "./TriggerBuilder";
-import { ActionBuilder } from "./ActionBuilder";
 import {
   Automation,
   CreateAutomationDto,
   AutomationTriggerType,
   AutomationActionType,
 } from "../../services/automation.service";
+// ✅ CORREGIDO: Importación corregida
 import {
   useTriggerTemplates,
   useActionTemplates,
@@ -78,8 +78,8 @@ export const AutomationForm = ({
     defaultValues: {
       name: automation?.name || "",
       description: automation?.description || "",
-      triggerType: automation?.triggerType || "",
-      triggerConditions: automation?.triggerConditions || {},
+      triggerType: automation?.trigger?.type || "",
+      triggerConditions: automation?.trigger?.conditions || {},
       actions:
         automation?.actions?.map((action, index) => ({
           type: action.type,
@@ -100,7 +100,6 @@ export const AutomationForm = ({
   });
 
   const watchedTriggerType = watch("triggerType");
-  const watchedActions = watch("actions");
 
   useEffect(() => {
     if (watchedTriggerType) {
@@ -110,7 +109,23 @@ export const AutomationForm = ({
 
   const handleFormSubmit = async (data: AutomationFormData) => {
     try {
-      await onSubmit(data as CreateAutomationDto);
+      // ✅ CORREGIDO: Estructura correcta para CreateAutomationDto
+      const automationData: CreateAutomationDto = {
+        name: data.name,
+        description: data.description,
+        trigger: {
+          type: data.triggerType as AutomationTriggerType,
+          conditions: data.triggerConditions,
+        },
+        actions: data.actions.map((action) => ({
+          type: action.type as AutomationActionType,
+          parameters: action.parameters,
+          delayMinutes: action.delayMinutes,
+        })),
+        isActive: true,
+      };
+
+      await onSubmit(automationData);
     } catch (error) {
       // Error ya manejado por el hook
     }
@@ -335,17 +350,58 @@ export const AutomationForm = ({
 
                   <div className="space-y-4">
                     {actionFields.map((field, index) => (
-                      <ActionBuilder
-                        key={field.id}
-                        action={watchedActions[index]}
-                        onChange={(action) => {
-                          setValue(`actions.${index}`, action);
-                        }}
-                        onRemove={() => removeAction(index)}
-                        templates={actionTemplates}
-                        order={index + 1}
-                        canRemove={actionFields.length > 1}
-                      />
+                      <div key={field.id} className="p-4 glass rounded-lg">
+                        <div className="flex items-center justify-between mb-4">
+                          <h4 className="font-medium text-white">
+                            Acción {index + 1}
+                          </h4>
+                          <Button
+                            type="button"
+                            variant="danger"
+                            size="sm"
+                            onClick={() => removeAction(index)}
+                            disabled={actionFields.length === 1}
+                          >
+                            Eliminar
+                          </Button>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-sm font-medium text-white/80 mb-1">
+                              Tipo de Acción
+                            </label>
+                            <select
+                              {...register(`actions.${index}.type`)}
+                              className="input-glass w-full"
+                            >
+                              <option value="">Seleccionar acción</option>
+                              {actionTemplates?.map((template) => (
+                                <option
+                                  key={template.type}
+                                  value={template.type}
+                                >
+                                  {template.name}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+
+                          <div>
+                            <label className="block text-sm font-medium text-white/80 mb-1">
+                              Retraso (minutos)
+                            </label>
+                            <Input
+                              {...register(`actions.${index}.delayMinutes`, {
+                                valueAsNumber: true,
+                              })}
+                              type="number"
+                              min="0"
+                              placeholder="0"
+                            />
+                          </div>
+                        </div>
+                      </div>
                     ))}
 
                     <Button

@@ -10,18 +10,16 @@ import {
   Trash2,
   Calendar,
   Clock,
-  User,
-  MapPin,
   Phone,
   Plane,
-  Bell,
   Users,
 } from "lucide-react";
 import Card, { CardContent } from "../ui/Card";
 import Button from "../ui/Button";
 import Input from "../ui/Input";
-import { CalendarEvent, EventType } from "../../services/calendar.service";
+import { CalendarEvent} from "../../services/calendar.service";
 import { useContacts } from "../../hooks/useContacts";
+import { CreateEventDto } from "../../services/calendar.service";
 
 const eventSchema = z.object({
   title: z.string().min(1, "El título es requerido"),
@@ -29,12 +27,12 @@ const eventSchema = z.object({
   type: z.enum([
     "CLIENT_MEETING",
     "TRIP_DEPARTURE",
-    "TRIP_RETURN", 
+    "TRIP_RETURN",
     "FOLLOW_UP_CALL",
     "PAYMENT_DUE",
     "SEASONAL_CAMPAIGN",
     "TASK",
-    "OTHER"
+    "OTHER",
   ]),
   startDate: z.string().min(1, "La fecha de inicio es requerida"),
   startTime: z.string().optional(),
@@ -48,24 +46,58 @@ const eventSchema = z.object({
 
 type EventFormData = z.infer<typeof eventSchema>;
 
+// ✅ CORREGIDO: Props actualizadas con isLoading e isDeleting
 interface EventModalProps {
   event?: CalendarEvent | null;
   isOpen: boolean;
   onClose: () => void;
-  onSave: (data: any) => Promise<void>;
+  onSave: (data: CreateEventDto) => Promise<void>;
   onDelete?: (id: string) => Promise<void>;
   defaultDate?: Date | null;
   contactId?: string;
   tripId?: string;
+  // ✅ AGREGADAS: Props faltantes
+  isLoading?: boolean;
+  isDeleting?: boolean;
 }
 
 const EVENT_TYPES = [
-  { value: "CLIENT_MEETING", label: "Reunión con Cliente", icon: Users, color: "text-blue-400" },
-  { value: "TRIP_DEPARTURE", label: "Salida de Viaje", icon: Plane, color: "text-green-400" },
-  { value: "TRIP_RETURN", label: "Regreso de Viaje", icon: Plane, color: "text-purple-400" },
-  { value: "FOLLOW_UP_CALL", label: "Llamada de Seguimiento", icon: Phone, color: "text-amber-400" },
-  { value: "PAYMENT_DUE", label: "Vencimiento de Pago", icon: Clock, color: "text-red-400" },
-  { value: "SEASONAL_CAMPAIGN", label: "Campaña Estacional", icon: Calendar, color: "text-pink-400" },
+  {
+    value: "CLIENT_MEETING",
+    label: "Reunión con Cliente",
+    icon: Users,
+    color: "text-blue-400",
+  },
+  {
+    value: "TRIP_DEPARTURE",
+    label: "Salida de Viaje",
+    icon: Plane,
+    color: "text-green-400",
+  },
+  {
+    value: "TRIP_RETURN",
+    label: "Regreso de Viaje",
+    icon: Plane,
+    color: "text-purple-400",
+  },
+  {
+    value: "FOLLOW_UP_CALL",
+    label: "Llamada de Seguimiento",
+    icon: Phone,
+    color: "text-amber-400",
+  },
+  {
+    value: "PAYMENT_DUE",
+    label: "Vencimiento de Pago",
+    icon: Clock,
+    color: "text-red-400",
+  },
+  {
+    value: "SEASONAL_CAMPAIGN",
+    label: "Campaña Estacional",
+    icon: Calendar,
+    color: "text-pink-400",
+  },
   { value: "TASK", label: "Tarea", icon: Clock, color: "text-gray-400" },
   { value: "OTHER", label: "Otro", icon: Calendar, color: "text-gray-400" },
 ];
@@ -89,8 +121,10 @@ export const EventModal = ({
   defaultDate,
   contactId,
   tripId,
+  // ✅ AGREGADAS: Props con valores por defecto
+  isLoading = false,
+  isDeleting = false,
 }: EventModalProps) => {
-  const [isLoading, setIsLoading] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const { contacts } = useContacts();
 
@@ -122,7 +156,7 @@ export const EventModal = ({
         // Edit mode
         const eventStartDate = new Date(event.startDate);
         const eventEndDate = new Date(event.endDate);
-        
+
         reset({
           title: event.title,
           description: event.description || "",
@@ -141,7 +175,7 @@ export const EventModal = ({
         const date = defaultDate || new Date();
         const endDate = new Date(date);
         endDate.setHours(date.getHours() + 1); // Default 1 hour duration
-        
+
         reset({
           title: "",
           description: "",
@@ -167,20 +201,26 @@ export const EventModal = ({
     } else if (!watch("startTime")) {
       const now = new Date();
       setValue("startTime", format(now, "HH:mm"));
-      setValue("endTime", format(new Date(now.getTime() + 60 * 60 * 1000), "HH:mm"));
+      setValue(
+        "endTime",
+        format(new Date(now.getTime() + 60 * 60 * 1000), "HH:mm")
+      );
     }
   }, [watchAllDay, setValue, watch]);
 
   if (!isOpen) return null;
 
   const handleSave = async (data: EventFormData) => {
-    setIsLoading(true);
     try {
       // Parse dates
-      const startDateTime = new Date(`${data.startDate}T${data.startTime || "00:00"}`);
-      const endDateTime = new Date(`${data.endDate}T${data.endTime || "23:59"}`);
+      const startDateTime = new Date(
+        `${data.startDate}T${data.startTime || "00:00"}`
+      );
+      const endDateTime = new Date(
+        `${data.endDate}T${data.endTime || "23:59"}`
+      );
 
-      const eventData = {
+      const eventData: CreateEventDto = {
         title: data.title,
         description: data.description,
         type: data.type,
@@ -193,35 +233,27 @@ export const EventModal = ({
         assignedToId: event?.assignedToId || "current-user", // This should come from auth
       };
 
-      if (event) {
-        await onSave({ id: event.id, ...eventData });
-      } else {
-        await onSave(eventData);
-      }
-
+      await onSave(eventData);
       onClose();
     } catch (error) {
       console.error("Error saving event:", error);
-    } finally {
-      setIsLoading(false);
     }
   };
 
   const handleDelete = async () => {
     if (!event || !onDelete) return;
-    
-    setIsLoading(true);
+
     try {
       await onDelete(event.id);
       onClose();
     } catch (error) {
       console.error("Error deleting event:", error);
-    } finally {
-      setIsLoading(false);
     }
   };
 
-  const selectedEventType = EVENT_TYPES.find(type => type.value === watchType);
+  const selectedEventType = EVENT_TYPES.find(
+    (type) => type.value === watchType
+  );
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -230,7 +262,9 @@ export const EventModal = ({
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-lg bg-gradient-to-br from-blue-500/20 to-purple-500/20">
               {selectedEventType ? (
-                <selectedEventType.icon className={`w-6 h-6 ${selectedEventType.color}`} />
+                <selectedEventType.icon
+                  className={`w-6 h-6 ${selectedEventType.color}`}
+                />
               ) : (
                 <Calendar className="w-6 h-6 text-blue-400" />
               )}
@@ -241,7 +275,9 @@ export const EventModal = ({
               </h2>
               {event && (
                 <p className="text-white/60">
-                  {format(new Date(event.startDate), "dd/MM/yyyy", { locale: es })}
+                  {format(new Date(event.startDate), "dd/MM/yyyy", {
+                    locale: es,
+                  })}
                 </p>
               )}
             </div>
@@ -307,7 +343,7 @@ export const EventModal = ({
             {/* Date and Time */}
             <div className="space-y-4">
               <h3 className="text-lg font-medium text-white">Fecha y Hora</h3>
-              
+
               <div className="flex items-center gap-2">
                 <input
                   {...register("allDay")}
@@ -328,7 +364,9 @@ export const EventModal = ({
                     className="input-glass w-full"
                   />
                   {errors.startDate && (
-                    <p className="text-red-400 text-sm mt-1">{errors.startDate.message}</p>
+                    <p className="text-red-400 text-sm mt-1">
+                      {errors.startDate.message}
+                    </p>
                   )}
                 </div>
 
@@ -342,7 +380,9 @@ export const EventModal = ({
                     className="input-glass w-full"
                   />
                   {errors.endDate && (
-                    <p className="text-red-400 text-sm mt-1">{errors.endDate.message}</p>
+                    <p className="text-red-400 text-sm mt-1">
+                      {errors.endDate.message}
+                    </p>
                   )}
                 </div>
 
@@ -377,13 +417,16 @@ export const EventModal = ({
             {/* Associations */}
             <div className="space-y-4">
               <h3 className="text-lg font-medium text-white">Asociaciones</h3>
-              
+
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-white/80 mb-1">
                     Contacto (Opcional)
                   </label>
-                  <select {...register("contactId")} className="input-glass w-full">
+                  <select
+                    {...register("contactId")}
+                    className="input-glass w-full"
+                  >
                     <option value="">Seleccionar contacto</option>
                     {contacts.map((contact) => (
                       <option key={contact.id} value={contact.id}>
@@ -408,7 +451,9 @@ export const EventModal = ({
 
             {/* Reminders */}
             <div>
-              <h3 className="text-lg font-medium text-white mb-3">Recordatorios</h3>
+              <h3 className="text-lg font-medium text-white mb-3">
+                Recordatorios
+              </h3>
               <div className="flex flex-wrap gap-2">
                 {REMINDER_OPTIONS.map((option) => (
                   <label
@@ -436,18 +481,19 @@ export const EventModal = ({
                     variant="danger"
                     onClick={() => setShowDeleteConfirm(true)}
                     leftIcon={<Trash2 className="w-4 h-4" />}
+                    isLoading={isDeleting}
                   >
                     Eliminar
                   </Button>
                 )}
               </div>
-              
+
               <div className="flex gap-3">
                 <Button
                   type="button"
                   variant="glass"
                   onClick={onClose}
-                  disabled={isLoading}
+                  disabled={isLoading || isDeleting}
                 >
                   Cancelar
                 </Button>
@@ -481,14 +527,14 @@ export const EventModal = ({
                 <Button
                   variant="glass"
                   onClick={() => setShowDeleteConfirm(false)}
-                  disabled={isLoading}
+                  disabled={isDeleting}
                 >
                   Cancelar
                 </Button>
                 <Button
                   variant="danger"
                   onClick={handleDelete}
-                  isLoading={isLoading}
+                  isLoading={isDeleting}
                 >
                   Eliminar
                 </Button>

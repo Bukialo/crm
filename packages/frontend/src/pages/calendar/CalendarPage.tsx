@@ -12,17 +12,17 @@ import Card, {
   CardContent,
   CardHeader,
   CardTitle,
-} from "../components/ui/Card";
-import Button from "../components/ui/Button";
-import { Calendar } from "../components/calendar/Calendar";
-import { EventCard } from "../components/calendar/EventCard";
-import { useAuth } from "../hooks/useAuth";
+} from "../../components/ui/Card";
+import Button from "../../components/ui/Button";
+import { Calendar } from "../../components/calendar/calendar";
+import { EventCard } from "../../components/ui/EventCard";
+import { useAuth } from "../../hooks/useAuth";
 import {
   useUpcomingEvents,
   useTodayEvents,
   useCalendarStats,
   useCalendarHelpers,
-} from "../hooks/useCalendar";
+} from "../../hooks/useCalendar";
 
 const CalendarPage = () => {
   const { user } = useAuth();
@@ -34,8 +34,7 @@ const CalendarPage = () => {
     useUpcomingEvents(7);
   const { data: todayEvents = [], isLoading: loadingToday } = useTodayEvents();
   const { data: stats, isLoading: loadingStats } = useCalendarStats();
-  const { getEventTypeLabel, isEventUpcoming, isEventToday } =
-    useCalendarHelpers();
+  const { getEventTypeLabel } = useCalendarHelpers();
 
   return (
     <div className="space-y-6">

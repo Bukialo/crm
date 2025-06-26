@@ -1,11 +1,11 @@
 import { prisma } from "../lib/prisma";
 import { logger } from "../utils/logger";
 import { AppError, NotFoundError } from "../utils/errors";
-import { Prisma } from "@prisma/client";
+import { Prisma, CampaignType, CampaignStatus } from "@prisma/client";
 
 export interface CreateCampaignDto {
   name: string;
-  type: "EMAIL" | "SMS" | "WHATSAPP";
+  type: CampaignType;
   subject?: string;
   content: string;
   templateId?: string;
@@ -104,11 +104,11 @@ export class CampaignService {
     const where: Prisma.CampaignWhereInput = {};
 
     if (filterParams.status && filterParams.status.length > 0) {
-      where.status = { in: filterParams.status as any };
+      where.status = { in: filterParams.status as CampaignStatus[] };
     }
 
     if (filterParams.type && filterParams.type.length > 0) {
-      where.type = { in: filterParams.type as any };
+      where.type = { in: filterParams.type as CampaignType[] };
     }
 
     if (filterParams.createdById) {
@@ -306,7 +306,8 @@ export class CampaignService {
     logger.info(`Campaign deleted: ${id} by user: ${userId}`);
   }
 
-  async sendCampaign(id: string, userId: string) {
+  // CORREGIDO: Eliminar parámetro userId no usado
+  async sendCampaign(id: string, _userId: string) {
     const campaign = await prisma.campaign.findUnique({
       where: { id },
       include: {
@@ -398,9 +399,10 @@ export class CampaignService {
     const duplicateData: CreateCampaignDto = {
       name: `${originalCampaign.name} (Copia)`,
       type: originalCampaign.type,
-      subject: originalCampaign.subject,
+      // CORREGIDO: Manejar campos nullable correctamente
+      subject: originalCampaign.subject || undefined,
       content: originalCampaign.content,
-      templateId: originalCampaign.templateId,
+      templateId: originalCampaign.templateId || undefined,
       targetCriteria: originalCampaign.targetCriteria as any,
       useAiPersonalization: originalCampaign.useAiPersonalization,
       timezone: originalCampaign.timezone,
@@ -495,7 +497,8 @@ export class CampaignService {
     return contacts;
   }
 
-  private async sendEmailBatch(campaign: any, recipients: any[]) {
+  // CORREGIDO: Eliminar parámetro 'campaign' no usado
+  private async sendEmailBatch(_campaign: any, recipients: any[]) {
     // Aquí se implementaría la integración con el servicio de email
     // Por ahora simulamos el envío
 

@@ -38,6 +38,36 @@ const activityIcons = {
   },
 };
 
+// ✅ FUNCIÓN HELPER PARA FORMATEAR FECHAS SEGURAMENTE
+const formatActivityDate = (
+  timestamp: string | Date | null | undefined
+): string => {
+  try {
+    // Validar que el timestamp existe y no es null/undefined
+    if (!timestamp) {
+      return "Fecha no disponible";
+    }
+
+    // Convertir a Date si es string
+    const date =
+      typeof timestamp === "string" ? new Date(timestamp) : timestamp;
+
+    // Validar que la fecha es válida
+    if (isNaN(date.getTime())) {
+      return "Fecha inválida";
+    }
+
+    // Formatear la distancia de tiempo
+    return formatDistanceToNow(date, {
+      addSuffix: true,
+      locale: es,
+    });
+  } catch (error) {
+    console.error("Error formatting date:", error, "timestamp:", timestamp);
+    return "Fecha no disponible";
+  }
+};
+
 export const RecentActivity = ({
   activities,
   isLoading,
@@ -102,10 +132,7 @@ export const RecentActivity = ({
                     </p>
                     <span className="text-xs text-white/40">•</span>
                     <p className="text-xs text-white/40">
-                      {formatDistanceToNow(new Date(activity.timestamp), {
-                        addSuffix: true,
-                        locale: es,
-                      })}
+                      {formatActivityDate(activity.timestamp)}
                     </p>
                   </div>
                 </div>

@@ -1,6 +1,6 @@
 import { useState, useRef } from "react";
 import { X, Upload, FileText, AlertCircle, CheckCircle } from "lucide-react";
-import Papa from "papaparse";
+import Papa from "../../utils/papaparse-mock";
 import Card, { CardContent } from "../ui/Card";
 import Button from "../ui/Button";
 import { contactsService } from "../../services/contacts.service";

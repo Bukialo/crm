@@ -5,11 +5,9 @@ import {
   AutomationAction,
   AutomationTriggerType,
   AutomationActionType,
-  Contact,
-  Trip,
 } from "@prisma/client";
+// CORREGIDO: Remover Contact y Trip no usados
 import { AppError, NotFoundError } from "../utils/errors";
-import { emailService } from "./email.service";
 
 export interface CreateAutomationDto {
   name: string;
@@ -243,10 +241,10 @@ export class AutomationService {
     return this.findById(updatedAutomation.id);
   }
 
-  // Ejecutar automatización
+  // CORREGIDO: Ejecutar automatización - parámetro triggerData renombrado
   async executeAutomation(
     automationId: string,
-    triggerData: Record<string, any>
+    _triggerData: Record<string, any>
   ): Promise<ExecutionResult> {
     const startTime = Date.now();
     let executionId: string | null = null;
@@ -262,7 +260,7 @@ export class AutomationService {
       const execution = await prisma.automationExecution.create({
         data: {
           automationId,
-          triggeredBy: triggerData,
+          triggeredBy: _triggerData,
           status: "running",
         },
       });
@@ -276,11 +274,11 @@ export class AutomationService {
         try {
           // Aplicar delay si es necesario
           if (action.delayMinutes > 0) {
-            await this.scheduleDelayedAction(action, triggerData);
+            await this.scheduleDelayedAction(action, _triggerData);
             continue;
           }
 
-          const result = await this.executeAction(action, triggerData);
+          const result = await this.executeAction(action, _triggerData);
           actionsExecuted++;
           actionsLog.push({
             actionId: action.id,
@@ -384,7 +382,8 @@ export class AutomationService {
 
   // Implementación de acciones específicas
   private async executeSendEmailAction(parameters: any, triggerData: any) {
-    const { templateId, to, variables } = parameters;
+    // CORREGIDO: Remover variables 'to' y 'variables' no usadas
+    const { templateId } = parameters;
     const contactId = triggerData.contactId;
 
     if (!contactId) {
@@ -489,7 +488,7 @@ export class AutomationService {
   // Programar acción con delay
   private async scheduleDelayedAction(
     action: AutomationAction,
-    triggerData: any
+    _triggerData: any
   ) {
     // En una implementación real, esto se manejaría con un job queue como Bull
     // Por ahora, lo logueamos para indicar que se programaría

@@ -198,7 +198,7 @@ export const ActionBuilder = ({ actions, onChange }: ActionBuilderProps) => {
 
     const newAction: AutomationAction = {
       id: `action_${Date.now()}`,
-      actionType: actionType as any,
+      type: actionType as any,
       parameters: {},
       delayMinutes: 0,
       order: actions.length,
@@ -393,7 +393,7 @@ export const ActionBuilder = ({ actions, onChange }: ActionBuilderProps) => {
                     .sort((a, b) => a.order - b.order)
                     .map((action, index) => {
                       const actionConfig = actionTypes.find(
-                        (a) => a.type === action.actionType
+                        (a) => a.type === action.type
                       );
                       if (!actionConfig) return null;
 
@@ -446,11 +446,11 @@ export const ActionBuilder = ({ actions, onChange }: ActionBuilderProps) => {
                                         <span className="text-xs text-white/60">
                                           Paso {index + 1}
                                         </span>
-                                        {action.delayMinutes > 0 && (
+                                        {(action.delayMinutes || 0) > 0 && (
                                           <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-yellow-500/20 text-yellow-300 text-xs">
                                             <Clock className="w-3 h-3" />
                                             {formatDelayText(
-                                              action.delayMinutes
+                                              action.delayMinutes || 0
                                             )}
                                           </div>
                                         )}
@@ -482,7 +482,7 @@ export const ActionBuilder = ({ actions, onChange }: ActionBuilderProps) => {
                                     </button>
                                     <Button
                                       size="sm"
-                                      variant="danger"
+                                      variant="destructive"
                                       onClick={() => removeAction(action.id)}
                                       leftIcon={<Trash2 className="w-3 h-3" />}
                                     >
@@ -503,7 +503,7 @@ export const ActionBuilder = ({ actions, onChange }: ActionBuilderProps) => {
                                     <div className="grid grid-cols-2 gap-3">
                                       <Input
                                         type="number"
-                                        value={action.delayMinutes}
+                                        value={action.delayMinutes || 0}
                                         onChange={(e) =>
                                           updateAction(action.id, {
                                             delayMinutes:
@@ -514,9 +514,9 @@ export const ActionBuilder = ({ actions, onChange }: ActionBuilderProps) => {
                                       />
                                       <select
                                         value={
-                                          action.delayMinutes >= 1440
+                                          (action.delayMinutes || 0) >= 1440
                                             ? "days"
-                                            : action.delayMinutes >= 60
+                                            : (action.delayMinutes || 0) >= 60
                                               ? "hours"
                                               : "minutes"
                                         }
@@ -528,7 +528,7 @@ export const ActionBuilder = ({ actions, onChange }: ActionBuilderProps) => {
                                             multiplier = 1440;
 
                                           const currentValue =
-                                            action.delayMinutes;
+                                            action.delayMinutes || 0;
                                           let newValue = currentValue;
 
                                           if (

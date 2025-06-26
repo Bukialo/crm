@@ -310,13 +310,15 @@ export class EmailTemplateHelper {
 
     // Process {{#if variable}} ... {{/if}} blocks
     const ifRegex = /{{#if\s+(\w+)}}([\s\S]*?){{\/if}}/g;
-    result = result.replace(ifRegex, (match, varName, block) => {
+    // CORREGIDO: Remover parámetro 'match' no usado
+    result = result.replace(ifRegex, (_, varName, block) => {
       return variables[varName] ? block : "";
     });
 
     // Process {{#unless variable}} ... {{/unless}} blocks
     const unlessRegex = /{{#unless\s+(\w+)}}([\s\S]*?){{\/unless}}/g;
-    result = result.replace(unlessRegex, (match, varName, block) => {
+    // CORREGIDO: Remover parámetro 'match' no usado
+    result = result.replace(unlessRegex, (_, varName, block) => {
       return !variables[varName] ? block : "";
     });
 
@@ -332,7 +334,8 @@ export class EmailTemplateHelper {
     let match;
 
     while ((match = regex.exec(content)) !== null) {
-      if (!variables.includes(match[1])) {
+      // CORREGIDO: Verificar que match[1] existe antes de usarlo
+      if (match[1] && !variables.includes(match[1])) {
         variables.push(match[1]);
       }
     }

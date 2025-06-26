@@ -2,7 +2,8 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import { config } from "../config";
 import { prisma } from "../lib/prisma";
 import { logger } from "../utils/logger";
-import { AiQueryRequest, AiResponse } from "@bukialo/shared";
+// CORREGIDO: Importar tipos desde archivo local en lugar de @bukialo/shared
+import { AiQueryRequest, AiResponse } from "../types/shared";
 
 export class AiService {
   private genAI: GoogleGenerativeAI;
@@ -71,7 +72,7 @@ export class AiService {
       };
     } catch (error) {
       logger.error("Error processing AI query:", error);
-      return this.getErrorResponse(request.query, error);
+      return this.getErrorResponse(error);
     }
   }
 
@@ -121,9 +122,8 @@ export class AiService {
     };
   }
 
-  private getErrorResponse(query: string, error: any): AiResponse {
-    logger.error("AI query failed:", error);
-
+  // CORREGIDO: Eliminar parámetro 'error' no usado
+  private getErrorResponse(_error: any): AiResponse {
     return {
       message: {
         id: this.generateId(),
@@ -371,14 +371,17 @@ Debes responder en formato JSON con la siguiente estructura:
       // Insight sobre destinos populares
       if (recentTrends.length > 0) {
         const topDestination = recentTrends[0];
-        insights.push({
-          id: "3",
-          title: "Destino en tendencia",
-          description: `${topDestination.destination} es el destino más popular con ${topDestination._count} reservas recientes`,
-          priority: "low",
-          category: "trend",
-          data: recentTrends,
-        });
+        // CORREGIDO: Verificar que topDestination existe antes de usarlo
+        if (topDestination) {
+          insights.push({
+            id: "3",
+            title: "Destino en tendencia",
+            description: `${topDestination.destination} es el destino más popular con ${topDestination._count} reservas recientes`,
+            priority: "low",
+            category: "trend",
+            data: recentTrends,
+          });
+        }
       }
 
       return insights;

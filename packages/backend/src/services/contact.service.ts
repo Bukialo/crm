@@ -5,10 +5,14 @@ import {
   ContactFilter,
   CreateContactDto,
   PaginatedResponse,
+} from "../types/index";
+import {
   ContactStatus,
-  Activity,
-} from "@bukialo/shared";
-import { AppError, NotFoundError, ConflictError } from "../utils/errors";
+  BudgetRange,
+  ContactSource,
+  TravelStyle,
+} from "../types/index";
+import { NotFoundError, ConflictError } from "../utils/errors";
 import { logger } from "../utils/logger";
 
 export class ContactService {
@@ -28,13 +32,38 @@ export class ContactService {
 
       // Create contact with activity log
       const contact = await prisma.$transaction(async (tx) => {
-        // Create contact
+        // CORREGIDO: Usar la relación correcta 'assignedAgent' en lugar de 'assignedAgentId'
+        const createData: Prisma.ContactCreateInput = {
+          firstName: data.firstName,
+          lastName: data.lastName,
+          email: data.email,
+          phone: data.phone,
+          status: (data.status as ContactStatus) || ContactStatus.INTERESADO,
+          source: data.source ? (data.source as ContactSource) : undefined,
+          budgetRange: data.budgetRange
+            ? (data.budgetRange as BudgetRange)
+            : undefined,
+          travelStyle: data.travelStyle
+            ? (data.travelStyle as TravelStyle[])
+            : undefined,
+          preferredDestinations: data.preferredDestinations,
+          tags: data.tags,
+          // CORREGIDO: Usar la relación 'assignedAgent' en lugar de 'assignedAgentId'
+          assignedAgent: data.assignedAgentId
+            ? { connect: { id: data.assignedAgentId } }
+            : undefined,
+          createdBy: userId ? { connect: { id: userId } } : undefined,
+        };
+
+        // Remover campos undefined
+        Object.keys(createData).forEach((key) => {
+          if (createData[key as keyof typeof createData] === undefined) {
+            delete createData[key as keyof typeof createData];
+          }
+        });
+
         const newContact = await tx.contact.create({
-          data: {
-            ...data,
-            createdById: userId,
-            status: data.status || ContactStatus.INTERESADO,
-          },
+          data: createData,
           include: {
             assignedAgent: {
               select: {
@@ -153,8 +182,8 @@ export class ContactService {
 
     if (filterParams.status) {
       where.status = Array.isArray(filterParams.status)
-        ? { in: filterParams.status }
-        : filterParams.status;
+        ? { in: filterParams.status as ContactStatus[] }
+        : (filterParams.status as ContactStatus);
     }
 
     if (filterParams.assignedAgentId) {
@@ -167,14 +196,14 @@ export class ContactService {
 
     if (filterParams.source) {
       where.source = Array.isArray(filterParams.source)
-        ? { in: filterParams.source }
-        : filterParams.source;
+        ? { in: filterParams.source as ContactSource[] }
+        : (filterParams.source as ContactSource);
     }
 
     if (filterParams.budgetRange) {
       where.budgetRange = Array.isArray(filterParams.budgetRange)
-        ? { in: filterParams.budgetRange }
-        : filterParams.budgetRange;
+        ? { in: filterParams.budgetRange as BudgetRange[] }
+        : (filterParams.budgetRange as BudgetRange);
     }
 
     if (filterParams.dateFrom || filterParams.dateTo) {
@@ -262,9 +291,34 @@ export class ContactService {
 
     // Update contact with activity log
     const contact = await prisma.$transaction(async (tx) => {
+      const updateData: Prisma.ContactUpdateInput = {};
+
+      // Solo agregar campos que están presentes en data
+      if (data.firstName !== undefined) updateData.firstName = data.firstName;
+      if (data.lastName !== undefined) updateData.lastName = data.lastName;
+      if (data.email !== undefined) updateData.email = data.email;
+      if (data.phone !== undefined) updateData.phone = data.phone;
+      if (data.status !== undefined)
+        updateData.status = data.status as ContactStatus;
+      if (data.source !== undefined)
+        updateData.source = data.source as ContactSource;
+      if (data.budgetRange !== undefined)
+        updateData.budgetRange = data.budgetRange as BudgetRange;
+      if (data.travelStyle !== undefined)
+        updateData.travelStyle = data.travelStyle as TravelStyle[];
+      if (data.preferredDestinations !== undefined)
+        updateData.preferredDestinations = data.preferredDestinations;
+      if (data.tags !== undefined) updateData.tags = data.tags;
+      // CORREGIDO: Usar la relación 'assignedAgent' en lugar de 'assignedAgentId'
+      if (data.assignedAgentId !== undefined) {
+        updateData.assignedAgent = data.assignedAgentId
+          ? { connect: { id: data.assignedAgentId } }
+          : { disconnect: true };
+      }
+
       const updatedContact = await tx.contact.update({
         where: { id },
-        data,
+        data: updateData,
         include: {
           assignedAgent: {
             select: {

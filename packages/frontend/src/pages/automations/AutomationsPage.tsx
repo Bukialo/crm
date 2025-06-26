@@ -1,157 +1,143 @@
-import { useState } from "react";
-import { Plus, Zap, BarChart3, Filter, Play, Pause } from "lucide-react";
-import Card, {
-  CardContent,
-  CardHeader,
-  CardTitle,
+// src/pages/automations/AutomationsPage.tsx
+import React, { useState } from "react";
+import {
+  Card,
+  CardContent
 } from "../../components/ui/Card";
 import Button from "../../components/ui/Button";
-import { useAutomations, useAutomationStats } from "../../hooks/useAutomations";
-import { useAutomationStore } from "../../store/automation.store";
-import { AutomationCard } from "../../components/automations/AutomationCard";
-import { AutomationForm } from "../../components/automations/AutomationForm";
+import Input from "../../components/ui/Input";
+import {
+  Zap,
+  Plus,
+  Play,
+  Pause,
+  TrendingUp,
+  Users,
+  Clock,
+  CheckCircle,
+  Search,
+  Filter,
+  MoreVertical,
+  Edit,
+  Trash2,
+  Copy,
+  BarChart3,
+} from "lucide-react";
+import { useAutomations } from "../../hooks/useAutomations";
 import { ExecutionLog } from "../../components/automations/ExecutionLog";
-import { Automation } from "../../services/automation.service";
+import { AutomationTriggerType } from "../../services/automation.service";
 
-const AutomationsPage = () => {
-  const [showFilters, setShowFilters] = useState(false);
-  const [showExecutionLog, setShowExecutionLog] = useState(false);
-
-  const {
-    filters,
-    setFilters,
-    resetFilters,
-    showForm,
-    setShowForm,
-    editingAutomation,
-    setEditingAutomation,
-  } = useAutomationStore();
-
+export const AutomationsPage: React.FC = () => {
   const {
     automations,
-    isLoading,
-    createAutomation,
-    updateAutomation,
-    deleteAutomation,
-    toggleAutomation,
+    stats,
+    loading,
+    statsLoading,
     executeAutomation,
-  } = useAutomations(filters);
+    toggleAutomation,
+    deleteAutomation,
+    filters,
+    setFilters,
+  } = useAutomations();
 
-  const { data: stats, isLoading: statsLoading } = useAutomationStats();
+  const [searchTerm, setSearchTerm] = useState("");
+  const [showExecutionLog, setShowExecutionLog] = useState(false);
+  const [selectedAutomationId, setSelectedAutomationId] = useState<
+    string | undefined
+  >();
 
-  const handleCreateAutomation = async (data: any) => {
+  const handleTestAutomation = async (automationId: string) => {
+    const testData = {
+      contactId: "test-contact-123",
+      contactEmail: "test@example.com",
+      contactName: "Test Contact",
+    };
+
     try {
-      await createAutomation(data);
-      setShowForm(false);
-      setEditingAutomation(null);
+      await executeAutomation({ id: automationId, triggerData: testData });
+      alert("Automatización ejecutada exitosamente");
     } catch (error) {
-      // Error ya manejado por el hook
+      alert("Error al ejecutar la automatización");
+      console.error(error);
     }
   };
 
-  const handleUpdateAutomation = async (data: any) => {
-    if (!editingAutomation) return;
+  // Filtrar automatizaciones por término de búsqueda
+  const filteredAutomations = Array.isArray(automations)
+    ? automations.filter(
+        (automation) =>
+          automation.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          automation.description
+            ?.toLowerCase()
+            .includes(searchTerm.toLowerCase())
+      )
+    : [];
 
-    try {
-      await updateAutomation({ id: editingAutomation.id, data });
-      setShowForm(false);
-      setEditingAutomation(null);
-    } catch (error) {
-      // Error ya manejado por el hook
-    }
+  const activeAutomations = filteredAutomations.filter((a) => a.isActive);
+  const inactiveAutomations = filteredAutomations.filter((a) => !a.isActive);
+
+  const getTriggerTypeLabel = (type: AutomationTriggerType) => {
+    const labels = {
+      CONTACT_CREATED: "Contacto creado",
+      TRIP_BOOKED: "Viaje reservado",
+      TRIP_QUOTE_REQUESTED: "Cotización solicitada",
+      PAYMENT_RECEIVED: "Pago recibido",
+      EMAIL_OPENED: "Email abierto",
+      FORM_SUBMITTED: "Formulario enviado",
+      DATE_REACHED: "Fecha alcanzada",
+      STATUS_CHANGED: "Estado cambiado",
+    };
+    return labels[type as keyof typeof labels] || type;
   };
-
-  const handleDeleteAutomation = async (automation: Automation) => {
-    if (window.confirm(`¿Estás seguro de eliminar "${automation.name}"?`)) {
-      try {
-        await deleteAutomation(automation.id);
-      } catch (error) {
-        // Error ya manejado por el hook
-      }
-    }
-  };
-
-  const handleToggleAutomation = async (automation: Automation) => {
-    try {
-      await toggleAutomation(automation.id);
-    } catch (error) {
-      // Error ya manejado por el hook
-    }
-  };
-
-  const handleTestAutomation = async (automation: Automation) => {
-    try {
-      // Datos de prueba para testing
-      const testData = {
-        contactId: "test-contact-id",
-        userId: "current-user",
-        timestamp: new Date().toISOString(),
-      };
-
-      await executeAutomation(automation.id, testData);
-    } catch (error) {
-      // Error ya manejado por el hook
-    }
-  };
-
-  const handleEditAutomation = (automation: Automation) => {
-    setEditingAutomation(automation);
-    setShowForm(true);
-  };
-
-  const activeAutomations = automations.filter((a) => a.isActive);
-  const inactiveAutomations = automations.filter((a) => !a.isActive);
 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-white mb-2">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
             Automatizaciones
           </h1>
-          <p className="text-white/60">
-            {automations.length} automatizaciones configuradas
+          <p className="text-gray-600 dark:text-gray-400">
+            {Array.isArray(automations) ? automations.length : 0}{" "}
+            automatizaciones configuradas
           </p>
         </div>
-        <div className="flex gap-3">
+
+        <div className="flex gap-2">
           <Button
-            variant="glass"
-            leftIcon={<BarChart3 className="w-5 h-5" />}
-            onClick={() => setShowExecutionLog(true)}
+            variant="outline"
+            onClick={() => {
+              setSelectedAutomationId(undefined);
+              setShowExecutionLog(true);
+            }}
           >
-            Ver Logs
+            <BarChart3 className="w-4 h-4 mr-2" />
+            Ver Historial
           </Button>
-          <Button
-            variant="glass"
-            leftIcon={<Filter className="w-5 h-5" />}
-            onClick={() => setShowFilters(!showFilters)}
-          >
-            Filtros
-          </Button>
-          <Button
-            variant="primary"
-            leftIcon={<Plus className="w-5 h-5" />}
-            onClick={() => setShowForm(true)}
-          >
+
+          <Button variant="default">
+            <Plus className="w-4 h-4 mr-2" />
             Nueva Automatización
           </Button>
         </div>
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-white/60 mb-1">Total</p>
-                <p className="text-2xl font-bold text-white">
+                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                  Total Automatizaciones
+                </p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-white">
                   {statsLoading ? "..." : stats?.totalAutomations || 0}
                 </p>
               </div>
-              <div className="p-3 rounded-xl bg-blue-500/20">
-                <Zap className="w-6 h-6 text-blue-400" />
+              <div className="h-12 w-12 bg-purple-100 dark:bg-purple-900/20 rounded-lg flex items-center justify-center">
+                <Zap className="w-6 h-6 text-purple-600 dark:text-purple-400" />
               </div>
             </div>
           </CardContent>
@@ -161,13 +147,15 @@ const AutomationsPage = () => {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-white/60 mb-1">Activas</p>
-                <p className="text-2xl font-bold text-white">
+                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                  Activas
+                </p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-white">
                   {statsLoading ? "..." : stats?.activeAutomations || 0}
                 </p>
               </div>
-              <div className="p-3 rounded-xl bg-green-500/20">
-                <Play className="w-6 h-6 text-green-400" />
+              <div className="h-12 w-12 bg-green-100 dark:bg-green-900/20 rounded-lg flex items-center justify-center">
+                <CheckCircle className="w-6 h-6 text-green-600 dark:text-green-400" />
               </div>
             </div>
           </CardContent>
@@ -177,13 +165,15 @@ const AutomationsPage = () => {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-white/60 mb-1">Ejecuciones</p>
-                <p className="text-2xl font-bold text-white">
+                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                  Ejecuciones Totales
+                </p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-white">
                   {statsLoading ? "..." : stats?.totalExecutions || 0}
                 </p>
               </div>
-              <div className="p-3 rounded-xl bg-purple-500/20">
-                <BarChart3 className="w-6 h-6 text-purple-400" />
+              <div className="h-12 w-12 bg-blue-100 dark:bg-blue-900/20 rounded-lg flex items-center justify-center">
+                <TrendingUp className="w-6 h-6 text-blue-600 dark:text-blue-400" />
               </div>
             </div>
           </CardContent>
@@ -193,13 +183,15 @@ const AutomationsPage = () => {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-white/60 mb-1">Tasa de Éxito</p>
-                <p className="text-2xl font-bold text-white">
+                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                  Tasa de Éxito
+                </p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-white">
                   {statsLoading ? "..." : `${stats?.successRate || 0}%`}
                 </p>
               </div>
-              <div className="p-3 rounded-xl bg-amber-500/20">
-                <BarChart3 className="w-6 h-6 text-amber-400" />
+              <div className="h-12 w-12 bg-orange-100 dark:bg-orange-900/20 rounded-lg flex items-center justify-center">
+                <Users className="w-6 h-6 text-orange-600 dark:text-orange-400" />
               </div>
             </div>
           </CardContent>
@@ -207,180 +199,317 @@ const AutomationsPage = () => {
       </div>
 
       {/* Filters */}
-      {showFilters && (
-        <Card className="fade-in">
-          <CardHeader>
-            <CardTitle>Filtros</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-white/80 mb-2">
-                  Estado
-                </label>
-                <select
-                  className="input-glass w-full"
-                  value={
-                    filters.isActive === undefined
-                      ? ""
-                      : String(filters.isActive)
-                  }
-                  onChange={(e) =>
-                    setFilters({
-                      isActive:
-                        e.target.value === ""
-                          ? undefined
-                          : e.target.value === "true",
-                    })
-                  }
-                >
-                  <option value="">Todos</option>
-                  <option value="true">Activas</option>
-                  <option value="false">Inactivas</option>
-                </select>
-              </div>
+      <div className="flex flex-col sm:flex-row gap-4">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+          <Input
+            placeholder="Buscar automatizaciones..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10"
+          />
+        </div>
 
-              <div>
-                <label className="block text-sm font-medium text-white/80 mb-2">
-                  Tipo de Trigger
-                </label>
-                <select
-                  className="input-glass w-full"
-                  value={filters.triggerType || ""}
-                  onChange={(e) =>
-                    setFilters({ triggerType: e.target.value || undefined })
-                  }
-                >
-                  <option value="">Todos los tipos</option>
-                  <option value="CONTACT_CREATED">Contacto Creado</option>
-                  <option value="TRIP_QUOTE_REQUESTED">
-                    Cotización Solicitada
-                  </option>
-                  <option value="NO_ACTIVITY_30_DAYS">Sin Actividad</option>
-                  <option value="PAYMENT_OVERDUE">Pago Vencido</option>
-                  <option value="TRIP_COMPLETED">Viaje Completado</option>
-                  <option value="BIRTHDAY">Cumpleaños</option>
-                </select>
-              </div>
+        <div className="flex gap-2">
+          <select
+            value={filters.triggerType || ""}
+            onChange={(e) =>
+              setFilters({
+                triggerType:
+                  (e.target.value as AutomationTriggerType) || undefined,
+              })
+            }
+            className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+          >
+            <option value="">Todos los disparadores</option>
+            <option value="CONTACT_CREATED">Contacto creado</option>
+            <option value="TRIP_BOOKED">Viaje reservado</option>
+            <option value="PAYMENT_RECEIVED">Pago recibido</option>
+            <option value="EMAIL_OPENED">Email abierto</option>
+            <option value="STATUS_CHANGED">Estado cambiado</option>
+          </select>
 
-              <div className="flex items-end">
-                <Button
-                  variant="glass"
-                  onClick={resetFilters}
-                  className="w-full"
-                >
-                  Limpiar Filtros
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+          <Button
+            variant="outline"
+            onClick={() => setFilters({ isActive: !filters.isActive })}
+          >
+            <Filter className="w-4 h-4 mr-2" />
+            {filters.isActive ? "Activas" : "Todas"}
+          </Button>
+        </div>
+      </div>
 
       {/* Automations List */}
-      {isLoading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {[1, 2, 3, 4, 5, 6].map((i) => (
-            <Card key={i} className="h-64 animate-pulse">
-              <CardContent className="p-6">
-                <div className="h-4 bg-white/10 rounded mb-3" />
-                <div className="h-3 bg-white/10 rounded w-3/4 mb-2" />
-                <div className="h-3 bg-white/10 rounded w-1/2" />
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      ) : (
-        <>
-          {/* Active Automations */}
-          {activeAutomations.length > 0 && (
-            <div>
-              <h2 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
-                <Play className="w-5 h-5 text-green-400" />
-                Automatizaciones Activas ({activeAutomations.length})
-              </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {activeAutomations.map((automation) => (
-                  <AutomationCard
-                    key={automation.id}
-                    automation={automation}
-                    onEdit={handleEditAutomation}
-                    onDelete={handleDeleteAutomation}
-                    onToggle={handleToggleAutomation}
-                    onTest={handleTestAutomation}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Inactive Automations */}
-          {inactiveAutomations.length > 0 && (
-            <div>
-              <h2 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
-                <Pause className="w-5 h-5 text-gray-400" />
-                Automatizaciones Inactivas ({inactiveAutomations.length})
-              </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {inactiveAutomations.map((automation) => (
-                  <AutomationCard
-                    key={automation.id}
-                    automation={automation}
-                    onEdit={handleEditAutomation}
-                    onDelete={handleDeleteAutomation}
-                    onToggle={handleToggleAutomation}
-                    onTest={handleTestAutomation}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Empty State */}
-          {automations.length === 0 && (
-            <Card>
-              <CardContent className="p-12 text-center">
-                <Zap className="w-16 h-16 text-white/20 mx-auto mb-4" />
-                <h3 className="text-xl font-semibold text-white mb-2">
-                  No hay automatizaciones configuradas
-                </h3>
-                <p className="text-white/60 mb-6">
-                  Crea tu primera automatización para optimizar tu flujo de
-                  trabajo
-                </p>
-                <Button
-                  variant="primary"
-                  leftIcon={<Plus className="w-5 h-5" />}
-                  onClick={() => setShowForm(true)}
+      <div className="space-y-6">
+        {/* Active Automations */}
+        {activeAutomations.length > 0 && (
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+              Automatizaciones Activas ({activeAutomations.length})
+            </h2>
+            <div className="grid grid-cols-1 gap-4">
+              {activeAutomations.map((automation) => (
+                <Card
+                  key={automation.id}
+                  className="hover:shadow-md transition-shadow"
                 >
-                  Crear Automatización
-                </Button>
-              </CardContent>
-            </Card>
-          )}
-        </>
-      )}
+                  <CardContent className="p-6">
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3 mb-2">
+                          <div className="w-10 h-10 bg-green-100 dark:bg-green-900/20 rounded-lg flex items-center justify-center">
+                            <Zap className="w-5 h-5 text-green-600 dark:text-green-400" />
+                          </div>
 
-      {/* Automation Form Modal */}
-      {showForm && (
-        <AutomationForm
-          automation={editingAutomation}
-          onSubmit={
-            editingAutomation ? handleUpdateAutomation : handleCreateAutomation
-          }
-          onCancel={() => {
-            setShowForm(false);
-            setEditingAutomation(null);
-          }}
-        />
-      )}
+                          <div>
+                            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                              {automation.name}
+                            </h3>
+                            <p className="text-sm text-gray-600 dark:text-gray-400">
+                              {automation.description}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-6 text-sm text-gray-500 dark:text-gray-400 mb-3">
+                          <span className="flex items-center gap-1">
+                            <Clock className="w-4 h-4" />
+                            Disparador:{" "}
+                            {getTriggerTypeLabel(automation.trigger.type)}
+                          </span>
+
+                          <span className="flex items-center gap-1">
+                            <TrendingUp className="w-4 h-4" />
+                            {automation.executionCount} ejecuciones
+                          </span>
+
+                          <span className="flex items-center gap-1">
+                            <CheckCircle className="w-4 h-4" />
+                            {automation.successCount > 0
+                              ? Math.round(
+                                  (automation.successCount /
+                                    automation.executionCount) *
+                                    100
+                                )
+                              : 0}
+                            % éxito
+                          </span>
+
+                          {automation.lastExecuted && (
+                            <span>
+                              Última:{" "}
+                              {new Date(
+                                automation.lastExecuted
+                              ).toLocaleDateString()}
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <span className="px-2 py-1 bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-300 rounded text-xs font-medium">
+                            Activa
+                          </span>
+                          <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 rounded text-xs">
+                            {automation.actions.length} acciones
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleTestAutomation(automation.id)}
+                        >
+                          <Play className="w-4 h-4" />
+                        </Button>
+
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => toggleAutomation(automation.id, false)}
+                        >
+                          <Pause className="w-4 h-4" />
+                        </Button>
+
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setSelectedAutomationId(automation.id);
+                            setShowExecutionLog(true);
+                          }}
+                        >
+                          <BarChart3 className="w-4 h-4" />
+                        </Button>
+
+                        <Button variant="outline" size="sm">
+                          <MoreVertical className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Inactive Automations */}
+        {inactiveAutomations.length > 0 && (
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+              Automatizaciones Inactivas ({inactiveAutomations.length})
+            </h2>
+            <div className="grid grid-cols-1 gap-4">
+              {inactiveAutomations.map((automation) => (
+                <Card
+                  key={automation.id}
+                  className="opacity-75 hover:opacity-100 hover:shadow-md transition-all"
+                >
+                  <CardContent className="p-6">
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3 mb-2">
+                          <div className="w-10 h-10 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center">
+                            <Pause className="w-5 h-5 text-gray-500" />
+                          </div>
+
+                          <div>
+                            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                              {automation.name}
+                            </h3>
+                            <p className="text-sm text-gray-600 dark:text-gray-400">
+                              {automation.description}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-6 text-sm text-gray-500 dark:text-gray-400 mb-3">
+                          <span className="flex items-center gap-1">
+                            <Clock className="w-4 h-4" />
+                            Disparador:{" "}
+                            {getTriggerTypeLabel(automation.trigger.type)}
+                          </span>
+
+                          <span className="flex items-center gap-1">
+                            <TrendingUp className="w-4 h-4" />
+                            {automation.executionCount} ejecuciones
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <span className="px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded text-xs font-medium">
+                            Inactiva
+                          </span>
+                          <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 rounded text-xs">
+                            {automation.actions.length} acciones
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => toggleAutomation(automation.id, true)}
+                        >
+                          <Play className="w-4 h-4" />
+                        </Button>
+
+                        <Button variant="outline" size="sm">
+                          <Edit className="w-4 h-4" />
+                        </Button>
+
+                        <Button variant="outline" size="sm">
+                          <Copy className="w-4 h-4" />
+                        </Button>
+
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => {
+                            if (
+                              window.confirm(
+                                "¿Estás seguro de que quieres eliminar esta automatización?"
+                              )
+                            ) {
+                              deleteAutomation(automation.id);
+                            }
+                          }}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Empty State */}
+        {!loading && Array.isArray(automations) && automations.length === 0 && (
+          <div className="text-center py-12">
+            <Zap className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+              No hay automatizaciones
+            </h3>
+            <p className="text-gray-600 dark:text-gray-400 mb-4">
+              Crea tu primera automatización para mejorar la eficiencia de tu
+              CRM
+            </p>
+            <Button variant="default">
+              <Plus className="w-4 h-4 mr-2" />
+              Crear Primera Automatización
+            </Button>
+          </div>
+        )}
+
+        {/* Loading State */}
+        {loading && (
+          <div className="flex items-center justify-center py-12">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
+            <span className="ml-3 text-gray-600 dark:text-gray-400">
+              Cargando automatizaciones...
+            </span>
+          </div>
+        )}
+
+        {/* No Results */}
+        {!loading &&
+          Array.isArray(automations) &&
+          automations.length > 0 &&
+          filteredAutomations.length === 0 && (
+            <div className="text-center py-12">
+              <Search className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+                No se encontraron automatizaciones
+              </h3>
+              <p className="text-gray-600 dark:text-gray-400 mb-4">
+                Intenta ajustar los filtros de búsqueda
+              </p>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setSearchTerm("");
+                  setFilters({});
+                }}
+              >
+                Limpiar Filtros
+              </Button>
+            </div>
+          )}
+      </div>
 
       {/* Execution Log Modal */}
       {showExecutionLog && (
-        <ExecutionLog onClose={() => setShowExecutionLog(false)} />
+        <ExecutionLog
+          onClose={() => setShowExecutionLog(false)}
+          automationId={selectedAutomationId}
+        />
       )}
     </div>
   );
 };
-
-export default AutomationsPage;
